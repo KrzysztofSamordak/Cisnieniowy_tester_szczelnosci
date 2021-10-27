@@ -1,1 +1,6 @@
 PROJECT TITTLE: Ciśnieniowy miernik szczelności
+FUNCTIONALITY:
+- 2 automatic test programs (for device X and device Y), including air leaking test with underpressure and overpressure
+- manual control (controlling 2 valves, adjusting pump speed and target pressure)  
+- calibration mode (allowing adjusting manometer offset)
+- semi - automatic mode (pre-prepared test cases with adjustable parameters)
