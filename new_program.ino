@@ -28,10 +28,10 @@
 #define TEST_TIME_MENU 4
 #define SPEED_MENU 5
 #define START_IN_MANUAL_MODE_MENU 6
-#define UPPERPRESSURE_PARAM_MENU_CHANGE 7
-#define UPPERPRESSURE_PARAM_MENU_CHANGE 8
-#define TEST_TIME_MENU_CHANGE 9
-#define SPEED_MENU_CHANGE 10
+#define UPPERPRESSURE_PARAM_MENU_CHANGE 12
+#define LOWERPRESSURE_PARAM_MENU_CHANGE 13
+#define TEST_TIME_MENU_CHANGE 14
+#define SPEED_MENU_CHANGE 15
 
 #define NO_DEVICE_SELECTED 0
 #define IN_TEST_MENU 0
@@ -47,17 +47,17 @@
 #define DEFAULT_PRESSURE_DEVIATION_LIMIT 10 //dPa
 
 int delayTime;
-int upperpressureValue = DEFAULT_UPPERPRESSURE;
-int lowerpressureValue = DEFAULT_LOWERPRESSURE;
-int rpm = DEFAULT_PUMP_SPEED;
-int testTime = DEFAULT_TEST_TIME;
-int menuLayer = 0;																	// divide the menu into 2 layers
-double maxPressureDeviation[2] = {0, 0};
-
-
-
+int param[4];																				//store parameters' values for specyfied tests
+param[0] = DEFAULT_UPPERPRESSURE;
+param[1] = DEFAULT_LOWERPRESSURE;
+param[2] = DEFAULT_TEST_TIME;
+param[3] = DEFAULT_PUMP_SPEED;	
+int add_value[4];																			//store the value representing one point of param		
+add_value[0] = 10;																		//adding 1 value point to UPPERPRESSURE param will add 10 dPa
+add_value[0] = 10;																		//adding 1 value point to LOWERPRESSURE param will add 10 dPa
+add_value[0] = 1;																		//adding 1 value point to TEST_TIME param will add 1s
+add_value[0] = 10;																		//adding 1 value point to PUMP_SPEED param will add 10rpm
 bool state;
-
 int i;
 int returnKeyDetect;
 int readButtonState();
@@ -111,40 +111,7 @@ void setup()
 
 void loop()
 {
-  option[0] = option[1];
-  option[1] = readButtonState();
-  if (option[0] != option[1])
-  {
-    switch (option[1])
-    {
-      case LEFT:
-        DUT = NO_DEVICE_SELECTED;
-        currentMenu = AIRFIX;
-        showMenu(AIRFIX);
-       
-        break;
-      case RIGHT:
-        DUT = NO_DEVICE_SELECTED;
-        currentMenu = AQUASTIM;
-        showMenu(AQUASTIM);
-        break;
-      case ENTER:
-        if (option[0] == IN_TEST_MENU & DUT != NO_DEVICE_SELECTED & option[1] == ENTER)
-        {
-          DoTheTest(DUT);
-          option[1] = AIRFIX;
-          DUT = NO_DEVICE_SELECTED;
-          showMenu(AIRFIX);
-        } else if (DUT == NO_DEVICE_SELECTED)
-        {
-          currentMenu = TEST_MENU;
-          showMenu(TEST_MENU);
-          delay(300); // delay to avoid double click
-        }
-        break;
-      default:;
-    }
-  }
+	handleMenu();	
 }
 
 int readButtonState()
@@ -763,12 +730,11 @@ option[0] = option[1];					// store current and
 option[1] = readButtonState();		// previous button state
 if (option[0] != option[1])				// do something if button state has been changed from previous state
  {
-	 switch (option[1])
-	 {
-		 if(menuLayer == 0)
-		 {
+	if(currentMenu < 10)				//first menu layer
+	{
+		 switch (option[1])
+		{
 			case LEFT:
-				//DUT = NO_DEVICE_SELECTED;
 				if(currentMenu != TEST_BEGIN)
 				{
 					currentMenu--;
@@ -776,7 +742,6 @@ if (option[0] != option[1])				// do something if button state has been changed 
 				}
 				break;
 			case RIGHT:
-				//DUT = NO_DEVICE_SELECTED;
 				if(currentMenu != START_IN_MANUAL_MODE_MENU)
 				{
 					currentMenu++;
@@ -787,7 +752,6 @@ if (option[0] != option[1])				// do something if button state has been changed 
 				if(currentMenu != START_MENU && currentMenu != START_IN_MANUAL_MODE_MENU)
 				{
 					currentMenu+=10;
-					menuLayer++;
 					showMenu(currentMenu);
 				}else if (currentMenu == START_MENU)
 				{
@@ -800,14 +764,26 @@ if (option[0] != option[1])				// do something if button state has been changed 
 				}
 				break;
 			default:;
-		 }else
-		 {
-			 
-			 
-			 
-		 }
-		 
-		 
 		}
-	}
+	}else																											//second menu layer (changing parameters)
+	{
+		switch (option[1])
+		{
+			case LEFT:
+				param[currentMenu - 12] -= add_value[currentMenu - 12];			//subtract one value point from the specyfied parameter
+				showMenu(currentMenu);
+				break;
+			case RIGHT:
+				param[currentMenu + 12] += add_value[currentMenu + 12];			//subtract one value point from the specyfied parameter
+				showMenu(currentMenu);
+				break;
+			case ENTER:
+				currentMenu-=10;
+				showMenu(currentMenu);
+				break;
+			default:;
+		}
+	} 
 }
+}
+
