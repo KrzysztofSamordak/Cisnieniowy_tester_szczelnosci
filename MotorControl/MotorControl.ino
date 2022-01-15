@@ -1,14 +1,12 @@
 #include <Wire.h>
+
+#define pumpControlFromUnoSignalPin 13
 #define STEP_SIGNAL_PIN 12
 
-#define FORWARD HIGH
-#define BACKWARD LOW
-#define TIME_TO_RUN_MOTOR HIGH
-#define PUMP_SPEED 100 // rpm - start speed
+#define TIME_TO_RUN_MOTOR LOW
+#define PUMP_SPEED 10
 
-int calculateStepSignalFrequency(int _rpm);
-int delayTime;
-int rpm = 50;
+int delayTime = PUMP_SPEED;;
 void runMotor (int _delayTime);
 
 void setup()
@@ -16,22 +14,17 @@ void setup()
   Wire.begin(4);                // join i2c bus with address #4
   Wire.onReceive(receiveEvent); // register event
   Serial.begin(9600);           // start serial for output
+  pinMode(pumpControlFromUnoSignalPin, INPUT_PULLUP);
   pinMode(STEP_SIGNAL_PIN, OUTPUT);
-  delayTime = calculateStepSignalFrequency(rpm);  // calculate delay for step motor signal
+  digitalWrite(STEP_SIGNAL_PIN, LOW);
 }
 
 void loop()
 {
-  while( digitalRead(STEP_SIGNAL_PIN) == TIME_TO_RUN_MOTOR)
+  while( digitalRead(pumpControlFromUnoSignalPin) == TIME_TO_RUN_MOTOR)
   {
     runMotor(delayTime);
   }
-}
-
-int calculateStepSignalFrequency(int _rpm)
-{
-  float a = 1;
-  return ( (a / _rpm) * 1000);
 }
 
 void runMotor (int _delayTime)
@@ -44,9 +37,8 @@ void runMotor (int _delayTime)
 
 void receiveEvent()
 {
-  while(Wire.available()) // loop through all but the last
+  while(Wire.available())
   {
-    rpm = Wire.read();    // receive rpm
-    delayTime = calculateStepSignalFrequency(rpm);    // calculate delay for step motor signal
+    delayTime = Wire.read();    // receive delay for step motor signal
   }        
 }

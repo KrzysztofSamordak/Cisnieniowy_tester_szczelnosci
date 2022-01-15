@@ -37,26 +37,32 @@
 #define IN_TEST_MENU 0
 #define UNDERPRESSURE_TEST 0
 #define OVERPRESSURE_TEST 1
+#define BOTH_TESTS 2
+
+//config
 #define DEFAULT_UPPERPRESSURE 400								// default upperpressure after program start - in daPa
 #define DEFAULT_LOWERPRESSURE -400								// default lowerpressure after program start - in daPa
-#define DEFAULT_TEST_TIME 10												// default test time after program start - in seconds
-#define DISPLAY_DELAY_DURING_PUMPING_TEST 500 //cycles
-#define DISPLAY_DELAY_DURING_LEAKING_TEST 1500 //cycles
-#define MANOMETER_OFFSET_VALUE 501 // manometer offset value - used for calibration
-#define PRESSURE_DEVIATION_BEFORE_TEST 80 //dPa
-#define DEFAULT_PRESSURE_DEVIATION_LIMIT 10 //dPa
+#define DEFAULT_TEST_TIME 10									// default test time after program start - in seconds
+#define DISPLAY_DELAY_DURING_PUMPING_TEST 500							//cycles
+#define DISPLAY_DELAY_DURING_LEAKING_TEST 1500 						//cycles
+#define MANOMETER_OFFSET_VALUE 501 								// manometer offset value - used for calibration
+#define PRESSURE_DEVIATION_BEFORE_TEST 80 							//dPa
+#define DEFAULT_PRESSURE_DEVIATION_LIMIT 10 							//dPa
+#define MAX_LOWERPRESSURE -1000								// maximal lowerpressure that can be set
+#define MAX_UPPERPRESSURE 1000								// maximal upperpressure that can be set
+
 
 int delayTime;
-int param[4];																				//store parameters' values for specyfied tests
+int param[4];											//store parameters' values for specyfied tests
 param[0] = DEFAULT_UPPERPRESSURE;
 param[1] = DEFAULT_LOWERPRESSURE;
 param[2] = DEFAULT_TEST_TIME;
 param[3] = DEFAULT_PUMP_SPEED;	
-int add_value[4];																			//store the value representing one point of param		
-add_value[0] = 10;																		//adding 1 value point to UPPERPRESSURE param will add 10 dPa
-add_value[0] = 10;																		//adding 1 value point to LOWERPRESSURE param will add 10 dPa
-add_value[0] = 1;																		//adding 1 value point to TEST_TIME param will add 1s
-add_value[0] = 10;																		//adding 1 value point to PUMP_SPEED param will add 10rpm
+int add_value[4];										//store the value representing one point of param		
+add_value[0] = 10;										//adding 1 value point to UPPERPRESSURE param will add 10 dPa
+add_value[0] = 10;										//adding 1 value point to LOWERPRESSURE param will add 10 dPa
+add_value[0] = 1;										//adding 1 value point to TEST_TIME param will add 1s
+add_value[0] = 1;										//adding 1 value point to PUMP_SPEED param will add 1 speed level
 bool state;
 int i;
 int returnKeyDetect;
@@ -67,16 +73,18 @@ void dispalyTestBeginingCommunicate();
 void displayPressureMeasurement(double calculatedPressure);
 void displayPressureDeviationMeasurement(double pressureDeviation);
 void displayVentingCommunicate();
-void displayTestResult(double pressureDeviationLimit);
+void displayTestResult(int testsNumber);
 void displayTestTime (int testTime, int testTimeTmp);
 void displayPressureError();
 void pressureError();
 void displayBlockedError();
 void blockedError();
 void showMenu(int currentMenu_tmp);
-void DoTheTest(int DUT);
+void DoTheUnderpressureTest();
+void DoTheOverpressureeTest();
 double readPressure();
 int option[2] = {BEGIN_TEST, BEGIN_TEST}
+double maxPressureDeviation[2] = {0, 0};
 int DUT = NO_DEVICE_SELECTED;
 int currentMenu = 1;
 const int rs = 7, en = 6, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
@@ -350,49 +358,29 @@ void showMenu(int currentMenu_tmp)
 	}
 }
 
-void DoTheTest(int DUT)
+void DoTheUnderpressureTest()
 {
-  unsigned long startTime;
+  unsigned long startTime = 0;
   unsigned long pumpingTime = 1;
-  double refPressure;
+  double refPressure = 0;
   double pressureDeviation = 0;
   int testTime = 0; 
-  int lowerPressure;
-  int upperPressure;
-  int testTimeTmp;
-  int pressureDeviationLimit;
-  returnKeyDetect = 0;
+  int lowerPressure = param[1];
+  int upperPressure = param[0];
+  int testTimeTmp = param[2];
   i = 0;
-  if (DUT == AIRFIX)
-  {
-    lowerPressure = LOWERPRESSURE_AIRFIX;
-    upperPressure = UPPERPRESSURE_AIRFIX;
-    testTimeTmp = TEST_TIME_AIRFIX;
-    pressureDeviationLimit = PRESSURE_DEVIATION_LIMIT_AIRFIX;
-  } else if (DUT == AQUASTIM)
-  {
-    lowerPressure = LOWERPRESSURE_AQUASTIM;
-    upperPressure = UPPERPRESSURE_AQUASTIM;
-    testTimeTmp = TEST_TIME_AQUASTIM;
-    pressureDeviationLimit = PRESSURE_DEVIATION_LIMIT_AQUASTIM;
-  }
-
-  dispalyTestBeginingCommunicate();
-
-  // Underpressure test begin - currently not used
-
-  /*
   
+  //dispalyTestBeginingCommunicate();
+
   digitalWrite(valve3Pin, valveOn);
   digitalWrite(sleepPin, sleepOff);
   digitalWrite(directionSignalPin, backward);
   startTime = ( millis() / 1000 );
-  
   calculatedPressure = readPressure();
   displayPressureMeasurement(calculatedPressure);
-  while ((calculatedPressure = readPressure()) > lowerPressure && ( ( pumpingTime = ((millis() / 1000) - startTime))  < PUMPING_MAX_TIME ))
+  digitalWrite(pumpControlPin, runPump);
+  while ((calculatedPressure = readPressure()) > lowerPressure && (digitalRead(enterKeyPin) != LOW)
   {
-    do_the_step(delayTime);
     if(i >= DISPLAY_DELAY_DURING_LEAKING_TEST)
       {
         displayPressureMeasurement(calculatedPressure);
@@ -402,8 +390,9 @@ void DoTheTest(int DUT)
         i++;
       }
   }
+  digitalWrite(pumpControlPin, stopPump);
   digitalWrite(sleepPin, sleepOn);
-  if ( pumpingTime >= PUMPING_MAX_TIME || pumpingTime <= PUMPING_MIN_TIME)
+  /*if ( pumpingTime >= PUMPING_MAX_TIME || pumpingTime <= PUMPING_MIN_TIME)
   {
     if(pumpingTime <= PUMPING_MIN_TIME)
     {
@@ -414,6 +403,7 @@ void DoTheTest(int DUT)
     }
   }else
   {
+  */
     testTime = 0;
     i = 0;  
     displayPressureMeasurement(calculatedPressure);
@@ -430,7 +420,7 @@ void DoTheTest(int DUT)
     }else
     {
       displayPressureDeviationMeasurement(pressureDeviation);
-      while ( ( testTime = ((millis() / 1000) - startTime) ) < testTimeTmp)
+      while ( (( testTime = ((millis() / 1000) - startTime) ) < testTimeTmp) && (digitalRead(enterKeyPin) != LOW)
       {
         calculatedPressure = readPressure();
         pressureDeviation = refPressure - abs(calculatedPressure);
@@ -445,44 +435,46 @@ void DoTheTest(int DUT)
           i++;
         }
       }
-      digitalWrite(valve3Pin, valveOff);
-      displayVentingCommunicate();
-  
-    // Underpressure test end
-    
-    */
-    
-    // Overpressure test begin
-
-    startTime = 0;
-    i = 0;
-    pumpingTime = 0;
-    refPressure = 0;
-    pressureDeviation = 0;
-    testTime = 0;
-    lcd.clear();
-    digitalWrite(directionSignalPin, forward);
-    digitalWrite(sleepPin, sleepOff);
-    digitalWrite(valve3Pin, valveOn);
-    startTime = ( millis() / 1000 );
-    
-      calculatedPressure = readPressure();
-      displayPressureMeasurement(calculatedPressure);
-       
-    while ((calculatedPressure = readPressure()) < upperPressure && ( ( pumpingTime = ((millis() / 1000) - startTime))  < PUMPING_MAX_TIME ))
-    {
-      do_the_step(delayTime);
-      if(i >= DISPLAY_DELAY_DURING_LEAKING_TEST)
-        {
-          displayPressureMeasurement(calculatedPressure);
-          i = 0;
-        }else
-        {
-          i++;
-        }
     }
+      digitalWrite(valve3Pin, valveOff);
+}
+      
+      
+  
+void DoTheOverpressureeTest()
+{
+  unsigned long pumpingTime = 1;
+  unsigned long startTime = 0;
+  double refPressure = 0;
+  double pressureDeviation = 0;
+  int testTime = 0; 
+  int lowerPressure = param[1];
+  int upperPressure = param[0];
+  int testTimeTmp = param[2];
+  i = 0;
+  
+  lcd.clear();
+  digitalWrite(directionSignalPin, forward);
+  digitalWrite(sleepPin, sleepOff);
+  digitalWrite(valve3Pin, valveOn);
+  startTime = ( millis() / 1000 );
+  calculatedPressure = readPressure();
+  displayPressureMeasurement(calculatedPressure);
+  digitalWrite(pumpControlPin, runPump);
+  while ((calculatedPressure = readPressure()) < upperPressure && (digitalRead(enterKeyPin) != LOW) )
+  {
+    if(i >= DISPLAY_DELAY_DURING_LEAKING_TEST)
+      {
+        displayPressureMeasurement(calculatedPressure);
+        i = 0;
+      }else
+      {
+        i++;
+      }
+  }
     digitalWrite(sleepPin, sleepOn);
-    if ( pumpingTime >= PUMPING_MAX_TIME || pumpingTime <= PUMPING_MIN_TIME)
+    digitalWrite(pumpControlPin, stopPump);
+    /* if ( pumpingTime >= PUMPING_MAX_TIME || pumpingTime <= PUMPING_MIN_TIME)
     {
       if(pumpingTime <= PUMPING_MIN_TIME)
     {
@@ -493,6 +485,7 @@ void DoTheTest(int DUT)
     }
     }else
     {
+    */
       testTime = 0;
       i = 0;  
       displayPressureMeasurement(calculatedPressure);
@@ -503,45 +496,27 @@ void DoTheTest(int DUT)
       refPressure = abs(readPressure());
       displayPressureMeasurement(refPressure);
       displayPressureDeviationMeasurement(pressureDeviation);
-      if( ( calculatedPressure - refPressure ) > PRESSURE_DEVIATION_BEFORE_TEST)
+      while ( ( testTime = ((millis() / 1000) - startTime) ) < testTimeTmp)
       {
-        pressureError();
-      }else
-      {
-        while ( ( testTime = ((millis() / 1000) - startTime) ) < testTimeTmp)
-        {
-          calculatedPressure = readPressure();
-          pressureDeviation = refPressure - abs(calculatedPressure);
-         // if (pressureDeviation > maxPressureDeviation[OVERPRESSURE_TEST])
+        calculatedPressure = readPressure();
+        pressureDeviation = refPressure - abs(calculatedPressure);
+        // if (pressureDeviation > maxPressureDeviation[OVERPRESSURE_TEST])
         // {
-           maxPressureDeviation[OVERPRESSURE_TEST] = pressureDeviation;
+         maxPressureDeviation[OVERPRESSURE_TEST] = pressureDeviation;
         //  }
-          if (i >= DISPLAY_DELAY_DURING_LEAKING_TEST)
-          {
-            displayTestTime (testTime, testTimeTmp);
-            displayPressureDeviationMeasurement(pressureDeviation);
-            i = 0;
-          } else
-          {
-            i++;
-          }
-        }
-        digitalWrite(valve3Pin, valveOff);
-        delay(500);
-        displayTestResult(pressureDeviationLimit);
-        returnKeyDetect = readButtonState();
-        while(returnKeyDetect != ENTER)
+        if (i >= DISPLAY_DELAY_DURING_LEAKING_TEST)
         {
-          returnKeyDetect = readButtonState();
-        }
-          while(returnKeyDetect == ENTER)
+          displayTestTime (testTime, testTimeTmp);
+          displayPressureDeviationMeasurement(pressureDeviation);
+          i = 0;
+        } else
         {
-          returnKeyDetect = readButtonState(); 
-        }
-      // Overpressure test end
+          i++;
         }
       }
-    }
+      digitalWrite(valve3Pin, valveOff);     
+}
+
 
 void dispalyTestBeginingCommunicate()
 {
@@ -564,31 +539,40 @@ void dispalyTestBeginingCommunicate()
   lcd.clear();
 }
 
-void displayTestResult(double pressureDeviationLimit)
+void displayTestResult(int testsNumber)
 {
+  int returnKeyDetect = 0;
   lcd.clear();
-  lcd.setCursor(5, 0);
-  if (abs( maxPressureDeviation[UNDERPRESSURE_TEST] ) > pressureDeviationLimit  || abs( maxPressureDeviation[OVERPRESSURE_TEST] ) > pressureDeviationLimit )
+  lcd.setCursor(0, 0);
+  lcd.print("Ulot przy:");
+  lcd.setCursor(0, 1);
+  if(upperpressureStatus)
   {
-    lcd.print("<< FAIL >>");
-    lcd.setCursor(0, 1);
-    lcd.print("Ulot przy:");
-    lcd.setCursor(0, 2);
     lcd.print("-nadcisnieniu:");
-    lcd.setCursor(14, 2);
+    lcd.setCursor(14, 1);
     lcd.print( abs( maxPressureDeviation[OVERPRESSURE_TEST] ));
-  }else
-  {
-    lcd.print("<< PASS >>");
-    lcd.setCursor(0, 2);
-    lcd.print("Ulot ponizej ");
-    lcd.setCursor(13, 2);
-    lcd.print(pressureDeviationLimit);
-    lcd.setCursor(15, 2);
-    lcd.print("dPa");   
+    lcd.setCursor(20, 1);
+    lcd.print("daPa"); 
   }
-
-  lcd.display();
+  if(lowerpressureStatus)
+  {
+    lcd.setCursor(0, 2);
+    lcd.print("-podcisnieniu:");
+    lcd.setCursor(14, 2);
+    lcd.print( abs( maxPressureDeviation[UNDERPRESSURE_TEST] ));
+    lcd.setCursor(20, 2);
+    lcd.print("daPa");   
+  }
+      lcd.display();
+      returnKeyDetect = readButtonState();
+      while(returnKeyDetect != ENTER)
+      {
+        returnKeyDetect = readButtonState();
+      }
+        while(returnKeyDetect == ENTER)
+      {
+        returnKeyDetect = readButtonState(); 
+      }
 }
 
 int calculate_frequency(int rpm_tmp)
@@ -726,8 +710,9 @@ void do_the_step (int delayTime_tmp)
 	
 void handleMenu()
 { 
+int testsNumber = 0;
 option[0] = option[1];					// store current and 
-option[1] = readButtonState();		// previous button state
+option[1] = readButtonState();			// previous button state
 if (option[0] != option[1])				// do something if button state has been changed from previous state
  {
 	if(currentMenu < 10)				//first menu layer
@@ -756,7 +741,24 @@ if (option[0] != option[1])				// do something if button state has been changed 
 				}else if (currentMenu == START_MENU)
 				{
 					showMenu(TEST_BEGIN);
-					//do the test and return to menu
+					if(lowerpressureStatus)
+					{
+						DoTheUnderpressureTest();
+						testsNumber = UNDERPRESSURE_TEST;
+					}else if(upperPressure)
+					{
+						DoTheOverpressureTest();
+						if(lowerpressureStatus)
+						{
+							testsNumber = BOTH_TESTS;
+						}else
+						{
+						testsNumber = OVERPRESSURE_TEST;
+						}
+					}
+					displayTestResult(testsNumber);
+					currentMenu = START_MENU;
+					showMenu(currentMenu);
 				}else if (currentMenu == START_IN_MANUAL_MODE_MENU)
 				{
 					showMenu(TEST_BEGIN);
@@ -765,17 +767,23 @@ if (option[0] != option[1])				// do something if button state has been changed 
 				break;
 			default:;
 		}
-	}else																											//second menu layer (changing parameters)
+	}else //second menu layer (changing parameters)
 	{
 		switch (option[1])
 		{
 			case LEFT:
-				param[currentMenu - 12] -= add_value[currentMenu - 12];			//subtract one value point from the specyfied parameter
-				showMenu(currentMenu);
+				if(param[currentMenu - 12] > MAX_LOWERPRESSURE)
+				{
+					param[currentMenu - 12] -= add_value[currentMenu - 12];			//subtract one value point from the specyfied parameter
+					showMenu(currentMenu);
+				}
 				break;
 			case RIGHT:
-				param[currentMenu + 12] += add_value[currentMenu + 12];			//subtract one value point from the specyfied parameter
-				showMenu(currentMenu);
+				if(param[currentMenu - 12] < MAX_UPERPRESSURE)
+				{
+					param[currentMenu - 12] += add_value[currentMenu + 12];			//add one value point from the specyfied parameter
+					showMenu(currentMenu);
+				}
 				break;
 			case ENTER:
 				currentMenu-=10;
@@ -784,6 +792,6 @@ if (option[0] != option[1])				// do something if button state has been changed 
 			default:;
 		}
 	} 
-}
+  }
 }
 
