@@ -780,15 +780,9 @@ if (option != DO_NOTHING)
 								}
 								digitalWrite(pumpControlPin, stopPump);														// if button has been released just turn off pump
 								break;
-							case ENTER:																										// if enter button has been pressed just change valve state
-								if(digitalRead(valve3Pin) == valveOff)
-								{
-									digitalWrite(valve3Pin, valveOn)
-								}else
-								{
-									digitalWrite(valve3Pin, valveOff)
-								}
-								break;
+							case ENTER:
+								
+					
 						}
 					}
 				}
