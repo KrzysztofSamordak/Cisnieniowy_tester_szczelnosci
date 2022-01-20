@@ -29,6 +29,7 @@
 #define TEST_TIME_MENU 4
 #define SPEED_MENU 5
 #define START_IN_MANUAL_MODE_MENU 6
+#define MANUAL_TEST_MENU 7
 #define UPPERPRESSURE_PARAM_MENU_CHANGE 12
 #define LOWERPRESSURE_PARAM_MENU_CHANGE 13
 #define TEST_TIME_MENU_CHANGE 14
@@ -41,26 +42,28 @@
 #define OVERPRESSURE_TEST 1
 #define BOTH_TESTS 2
 
-//config
+///////// config //////////
 #define DEFAULT_UPPERPRESSURE 400								// default upperpressure after program start - in daPa
 #define DEFAULT_LOWERPRESSURE -400								// default lowerpressure after program start - in daPa
-#define DEFAULT_TEST_TIME 10									// default test time after program start - in seconds
-#define DISPLAY_DELAY_DURING_PUMPING_TEST 500							//cycles
-#define DISPLAY_DELAY_DURING_LEAKING_TEST 1500 						//cycles
-#define MANOMETER_OFFSET_VALUE 501 								// manometer offset value - used for calibration
-#define PRESSURE_DEVIATION_BEFORE_TEST 80 							//dPa
-#define DEFAULT_PRESSURE_DEVIATION_LIMIT 10 							//dPa
-#define MAX_LOWERPRESSURE -1000								// maximal lowerpressure that can be set
-#define MAX_UPPERPRESSURE 1000								// maximal upperpressure that can be set
+#define DEFAULT_TEST_TIME 10												// default test time after program start - in seconds
+#define DISPLAY_DELAY_DURING_PUMPING_TEST 500		//cycles
+#define DISPLAY_DELAY_DURING_LEAKING_TEST 1500 		//cycles
+#define MANOMETER_OFFSET_VALUE 501 							// manometer offset value - used for calibration
+#define PRESSURE_DEVIATION_BEFORE_TEST 80 				//dPa
+#define DEFAULT_PRESSURE_DEVIATION_LIMIT 10 			//dPa
+#define MAX_LOWERPRESSURE -1000									// maximal lowerpressure that can be set
+#define MAX_UPPERPRESSURE 1000										// maximal upperpressure that can be set
 
 
 int delayTime;
-int param[4];											//store parameters' values for specyfied tests
+double calculatedPressure;
+bool valve3Status = false;
+int param[4];												//store parameters' values for specyfied tests
 param[0] = DEFAULT_UPPERPRESSURE;
 param[1] = DEFAULT_LOWERPRESSURE;
 param[2] = DEFAULT_TEST_TIME;
 param[3] = DEFAULT_PUMP_SPEED;	
-int add_value[4];										//store the value representing one point of param		
+int add_value[4];											//store the value representing one point of param		
 add_value[0] = 10;										//adding 1 value point to UPPERPRESSURE param will add 10 dPa
 add_value[0] = 10;										//adding 1 value point to LOWERPRESSURE param will add 10 dPa
 add_value[0] = 1;										//adding 1 value point to TEST_TIME param will add 1s
@@ -347,6 +350,26 @@ void showMenu(int currentMenu_tmp)
 		lcd.print("<-  -");
 		lcd.setCursor(7, 3);
 		lcd.print("<zaakceptuj>");
+		lcd.setCursor(19, 3);
+		lcd.print("+  ->");
+		lcd.display();
+		break;
+	case MANUAL_TEST_MENU:
+		lcd.clear();
+		lcd.setCursor(0, 1);
+		lcd.print("Zawor: ");
+		lcd.setCursor(7, 1);
+		if(valve3Status)
+		{
+			lcd.print("zamkniety");
+		}else
+		{
+			lcd.print("otwarty");
+		}
+		lcd.setCursor(0, 3);
+		lcd.print("<-  -");
+		lcd.setCursor(7, 3);
+		lcd.print("<zawor>");
 		lcd.setCursor(19, 3);
 		lcd.print("+  ->");
 		lcd.display();
@@ -708,6 +731,7 @@ void do_the_step (int delayTime_tmp)
 	
 void handleMenu()
 { 
+int i = 0;
 int testsNumber = 0;
 int option = readButtonState();				// store button state
 if (option != DO_NOTHING)				
@@ -760,6 +784,10 @@ if (option != DO_NOTHING)
 				}else if (currentMenu == START_IN_MANUAL_MODE_MENU)									// manualc test handle
 				{
 					showMenu(TEST_BEGIN);
+					showMenu(MANUAL_TEST_MENU);
+					calculatedPressure = readPressure();
+					displayPressureMeasurement(calculatedPressure);
+					digitalWrite(sleepPin, sleepOff);
 					while( digitalRead(leftArrowKeyPin) != buttonPressed && digitalRead(enterKeyPin) != buttonPressed)		//need to set up loop to not exit switch case
 					{
 						switch(readButtonState())																						//check which button have been clicked
@@ -768,15 +796,35 @@ if (option != DO_NOTHING)
 								digitalWrite(directionSignalPin, backward);														// if left arrow has been clicked, set direction signal pin to backward
 								digitalWrite(pumpControlPin, runPump);															// run pump backward
 								while(digitalRead(leftArrowKeyPin) == buttonPressed )									// checking if button is still pressed 
-								{																														// if it is, just do nothing here (pump will be running because of setting pumpControlPin to runPump)
+								{		
+									calculatedPressure = readPressure();
+									displayPressureMeasurement(calculatedPressure);
+									if(i >= DISPLAY_DELAY_DURING_PUMPING_TEST)
+									{	
+										displayPressureMeasurement(calculatedPressure);
+										i = 0;
+									}else
+									{
+										i++;
+									}
 								}
-								digitalWrite(pumpControlPin, stopPump);														// if button has been released just turn off pump
+								digitalWrite(pumpControlPin, stopPump);														// if button has been released just turn off pump							
 								break;
 							case RIGHT:
 								digitalWrite(directionSignalPin, forward);														// if right arrow has been clicked, set direction signal pin to backward
 								digitalWrite(pumpControlPin, runPump);															// run pump backward
 								while(digitalRead(rightArrowKeyPin) == buttonPressed )								// checking if button is still pressed 
-								{																														// if it is, just do nothing here (pump will be running because of setting pumpControlPin to runPump)
+								{	
+									calculatedPressure = readPressure();
+									displayPressureMeasurement(calculatedPressure);
+									if(i >= DISPLAY_DELAY_DURING_PUMPING_TEST)
+									{	
+										displayPressureMeasurement(calculatedPressure);
+										i = 0;
+									}else
+									{
+										i++;
+									}																														
 								}
 								digitalWrite(pumpControlPin, stopPump);														// if button has been released just turn off pump
 								break;
@@ -784,13 +832,19 @@ if (option != DO_NOTHING)
 								if(digitalRead(valve3Pin) == valveOff)
 								{
 									digitalWrite(valve3Pin, valveOn)
+									valve3Status = true;
 								}else
 								{
 									digitalWrite(valve3Pin, valveOff)
+									valve3Status = false;
 								}
 								break;
 						}
 					}
+					digitalWrite(valve3Pin, valveOff);
+					digitalWrite(pumpControlPin, stopPump);
+					digitalWrite(sleepPin, sleepOn);
+					showMenu(currentMenu);
 				}
 				break;
 			default:;

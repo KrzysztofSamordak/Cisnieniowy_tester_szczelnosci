@@ -43,31 +43,30 @@
 #define BOTH_TESTS 2
 
 ///////// config //////////
-#define DEFAULT_UPPERPRESSURE 400								// default upperpressure after program start - in daPa
-#define DEFAULT_LOWERPRESSURE -400								// default lowerpressure after program start - in daPa
-#define DEFAULT_TEST_TIME 10												// default test time after program start - in seconds
-#define DISPLAY_DELAY_DURING_PUMPING_TEST 500		//cycles
-#define DISPLAY_DELAY_DURING_LEAKING_TEST 1500 		//cycles
-#define MANOMETER_OFFSET_VALUE 501 							// manometer offset value - used for calibration
-#define PRESSURE_DEVIATION_BEFORE_TEST 80 				//dPa
-#define DEFAULT_PRESSURE_DEVIATION_LIMIT 10 			//dPa
-#define MAX_LOWERPRESSURE -1000									// maximal lowerpressure that can be set
-#define MAX_UPPERPRESSURE 1000										// maximal upperpressure that can be set
+#define DEFAULT_UPPERPRESSURE 400                 // default upperpressure after program start - in daPa
+#define DEFAULT_LOWERPRESSURE -400                // default lowerpressure after program start - in daPa
+#define DEFAULT_TEST_TIME 10                      // default test time after program start - in seconds
+#define DEFAULT_PUMP_SPEED                        // default pump speed level after program start
+#define DISPLAY_DELAY_DURING_PUMPING_TEST 500     //cycles
+#define DISPLAY_DELAY_DURING_LEAKING_TEST 1500    //cycles
+#define MANOMETER_OFFSET_VALUE 501                // manometer offset value - used for calibration
+#define PRESSURE_DEVIATION_BEFORE_TEST 80         //dPa
+#define DEFAULT_PRESSURE_DEVIATION_LIMIT 10       //dPa
+#define MAX_LOWERPRESSURE -1000                   // maximal lowerpressure that can be set
+#define MAX_UPPERPRESSURE 1000                    // maximal upperpressure that can be set
+
 
 
 int delayTime;
 double calculatedPressure;
 bool valve3Status = false;
-int param[4];												//store parameters' values for specyfied tests
-param[0] = DEFAULT_UPPERPRESSURE;
-param[1] = DEFAULT_LOWERPRESSURE;
-param[2] = DEFAULT_TEST_TIME;
-param[3] = DEFAULT_PUMP_SPEED;	
-int add_value[4];											//store the value representing one point of param		
-add_value[0] = 10;										//adding 1 value point to UPPERPRESSURE param will add 10 dPa
-add_value[0] = 10;										//adding 1 value point to LOWERPRESSURE param will add 10 dPa
-add_value[0] = 1;										//adding 1 value point to TEST_TIME param will add 1s
-add_value[0] = 1;										//adding 1 value point to PUMP_SPEED param will add 1 speed level
+int param[4] = {DEFAULT_UPPERPRESSURE, DEFAULT_LOWERPRESSURE, DEFAULT_TEST_TIME, DEFAULT_PUMP_SPEED};                       //store parameters' values for specyfied tests
+ 
+int add_value[4] = {10, 10, 1, 1};                     //store the value representing one point of param   
+                                                       //adding 1 value point to UPPERPRESSURE param will add 10 dPa
+                                                      //adding 1 value point to LOWERPRESSURE param will add 10 dPa
+                                                      //adding 1 value point to TEST_TIME param will add 1s
+                                                      //adding 1 value point to PUMP_SPEED param will add 1 speed level
 bool state;
 int i;
 int returnKeyDetect;
@@ -96,287 +95,287 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 void setup()
 {
-	Serial.begin(9600);
-	// set up pump controller:
-	pinMode(sleepPin, OUTPUT);
-	pinMode(pumpControlPin OUTPUT);
-	pinMode(directionSignalPin, OUTPUT);
-	digitalWrite(sleepPin, sleepOn);
-	digitalWrite(pumpControlPin, stopPump);
-	pinMode(directionSignalPin, forward);		//set dafault direction 
-	
-	// set up valves:	
-	pinMode(valve2Pin, OUTPUT);
-	pinMode(valve3Pin, OUTPUT);
-	digitalWrite(valve2Pin, valveOff);
-	digitalWrite(valve3Pin, valveOff);
-	
-	// set up keyboard:
-	pinMode(leftArrowKeyPin, INPUT_PULLUP);
-	pinMode(rightArrowKeyPin, INPUT_PULLUP);
-	pinMode(enterKeyPin, INPUT_PULLUP);
-	
-	// set up the LCD's number of columns and rows:
-	lcd.begin(20, 4);
-	showMenu(START_MENU);
+  Serial.begin(9600);
+  // set up pump controller:
+  pinMode(sleepPin, OUTPUT);
+  pinMode(pumpControlPin, OUTPUT);
+  pinMode(directionSignalPin, OUTPUT);
+  digitalWrite(sleepPin, sleepOn);
+  digitalWrite(pumpControlPin, stopPump);
+  pinMode(directionSignalPin, forward);   //set dafault direction 
+  
+  // set up valves: 
+  pinMode(valve2Pin, OUTPUT);
+  pinMode(valve3Pin, OUTPUT);
+  digitalWrite(valve2Pin, valveOff);
+  digitalWrite(valve3Pin, valveOff);
+  
+  // set up keyboard:
+  pinMode(leftArrowKeyPin, INPUT_PULLUP);
+  pinMode(rightArrowKeyPin, INPUT_PULLUP);
+  pinMode(enterKeyPin, INPUT_PULLUP);
+  
+  // set up the LCD's number of columns and rows:
+  lcd.begin(20, 4);
+  showMenu(START_MENU);
 }
-	////////////////////// Main program loop //////////////////////
+  ////////////////////// Main program loop //////////////////////
 void loop()
 {
-	handleMenu();	
+  handleMenu(); 
 }
 
 int readButtonState()
 {
-	if ((digitalRead(leftArrowKeyPin)) == LOW)
-	{
-		return LEFT;
-	} else if ((digitalRead(rightArrowKeyPin)) == LOW)
-	{
-		return RIGHT;
-	} else if ((digitalRead(enterKeyPin)) == LOW)
-	{
-		return ENTER;
-	}
-	else 
-	{
-		return DO_NOTHING;
-	}
+  if ((digitalRead(leftArrowKeyPin)) == LOW)
+  {
+    return LEFT;
+  } else if ((digitalRead(rightArrowKeyPin)) == LOW)
+  {
+    return RIGHT;
+  } else if ((digitalRead(enterKeyPin)) == LOW)
+  {
+    return ENTER;
+  }
+  else 
+  {
+    return DO_NOTHING;
+  }
 }
 
 void showMenu(int currentMenu_tmp)
 {
   switch (currentMenu_tmp)
   {
-	case START_MENU:
-		lcd.clear();
-		lcd.setCursor(0, 0);
-		lcd.print("Nacisnij <ENTER> aby");
-		lcd.setCursor(0, 1);
-		lcd.print("rozpoczac test");
-		lcd.setCursor(6, 3);
-		lcd.print("zmien parametry ->");
-		lcd.display();
-		break;
-		
+  case START_MENU:
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Nacisnij <ENTER> aby");
+    lcd.setCursor(0, 1);
+    lcd.print("rozpoczac test");
+    lcd.setCursor(6, 3);
+    lcd.print("zmien parametry ->");
+    lcd.display();
+    break;
+    
     case TEST_BEGIN:
-		lcd.clear();
-		lcd.setCursor(0, 0);
-		lcd.print("Rozpoczynam test");
-		lcd.display();
-		delay(1000);
-		lcd.setCursor(0, 0);
-		lcd.print("Rozpoczynam test.");
-		lcd.display();
-		delay(1000);
-		lcd.setCursor(0, 0);
-		lcd.print("Rozpoczynam test..");
-		lcd.display();
-		delay(1000);
-		lcd.setCursor(0, 0);
-		lcd.print("Rozpoczynam test...");
-		lcd.display();
-		delay(1000);
-		break;
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Rozpoczynam test");
+    lcd.display();
+    delay(1000);
+    lcd.setCursor(0, 0);
+    lcd.print("Rozpoczynam test.");
+    lcd.display();
+    delay(1000);
+    lcd.setCursor(0, 0);
+    lcd.print("Rozpoczynam test..");
+    lcd.display();
+    delay(1000);
+    lcd.setCursor(0, 0);
+    lcd.print("Rozpoczynam test...");
+    lcd.display();
+    delay(1000);
+    break;
 
     case UPPERPRESSURE_PARAM_MENU:
-		lcd.clear();
-		lcd.setCursor(4, 0);
-		lcd.print("<<NADCISNIENIE>>");
-		lcd.setCursor(0, 1);
-		lcd.print("Test aktywny:    " );
-		lcd.setCursor(18, 1);
-		if(upperpressureStatus)
-		{
-			lcd.print("TAK");
-		}else
-	  {
-		  lcd.print("NIE");
-	  }
-		lcd.setCursor(0, 2);
-		lcd.print("Target: ");
-		lcd.setCursor(8, 2);
-		lcd.print(upperpressureValue);
-		lcd.setCursor(12, 2);
-		lcd.print("daPa");
-		lcd.setCursor(0, 3);
-		lcd.print("<- back");
-		lcd.setCursor(9, 3);
-		lcd.print("<zmien>");
-		lcd.setCursor(18, 3);
-		lcd.print("next->");
-		lcd.display();
-		break;
-		
+    lcd.clear();
+    lcd.setCursor(4, 0);
+    lcd.print("<<NADCISNIENIE>>");
+    lcd.setCursor(0, 1);
+    lcd.print("Test aktywny:    " );
+    lcd.setCursor(18, 1);
+    if(upperpressureStatus)
+    {
+      lcd.print("TAK");
+    }else
+    {
+      lcd.print("NIE");
+    }
+    lcd.setCursor(0, 2);
+    lcd.print("Target: ");
+    lcd.setCursor(8, 2);
+    lcd.print(param[0]);
+    lcd.setCursor(12, 2);
+    lcd.print("daPa");
+    lcd.setCursor(0, 3);
+    lcd.print("<- back");
+    lcd.setCursor(9, 3);
+    lcd.print("<zmien>");
+    lcd.setCursor(18, 3);
+    lcd.print("next->");
+    lcd.display();
+    break;
+    
 
-	case LOWERPRESSURE_PARAM_MENU:
-		lcd.clear();
-		lcd.setCursor(4, 0);
-		lcd.print("<<PODCISNIENIE>>");
-		lcd.setCursor(0, 1);
-		lcd.print("Test aktywny:    " );
-		lcd.setCursor(18, 1);
-		if(lowerpressureStatus)
-		{
-			lcd.print("TAK");
-		}else
-		{
-			lcd.print("NIE");
-		}
-		lcd.setCursor(0, 2);
-		lcd.print("Target: ");
-		lcd.setCursor(8, 2);
-		lcd.print(lowerpressure);
-		lcd.setCursor(12, 2);
-		lcd.print("daPa");
-		lcd.setCursor(0, 3);
-		lcd.print("<- back");
-		lcd.setCursor(9, 3);
-		lcd.print("<zmien>");
-		lcd.setCursor(18, 3);
-		lcd.print("next->");
-		lcd.display();
-		break;
-	  
-	case TEST_TIME_MENU:
-		lcd.clear();
-		lcd.setCursor(4, 0);
-		lcd.print("<<CZAS TESTU>>");
-		lcd.setCursor(9, 1);
-		lcd.print(testTime);
-		lcd.setCursor(12, 1);
-		lcd.print("s");
-		lcd.setCursor(0, 3);
-		lcd.print("<- back");
-		lcd.setCursor(9, 3);
-		lcd.print("<zmien>");
-		lcd.setCursor(18, 3);
-		lcd.print("next->");
-		lcd.display();
+  case LOWERPRESSURE_PARAM_MENU:
+    lcd.clear();
+    lcd.setCursor(4, 0);
+    lcd.print("<<PODCISNIENIE>>");
+    lcd.setCursor(0, 1);
+    lcd.print("Test aktywny:    " );
+    lcd.setCursor(18, 1);
+    if(lowerpressureStatus)
+    {
+      lcd.print("TAK");
+    }else
+    {
+      lcd.print("NIE");
+    }
+    lcd.setCursor(0, 2);
+    lcd.print("Target: ");
+    lcd.setCursor(8, 2);
+    lcd.print(param[1]);
+    lcd.setCursor(12, 2);
+    lcd.print("daPa");
+    lcd.setCursor(0, 3);
+    lcd.print("<- back");
+    lcd.setCursor(9, 3);
+    lcd.print("<zmien>");
+    lcd.setCursor(18, 3);
+    lcd.print("next->");
+    lcd.display();
+    break;
+    
+  case TEST_TIME_MENU:
+    lcd.clear();
+    lcd.setCursor(4, 0);
+    lcd.print("<<CZAS TESTU>>");
+    lcd.setCursor(9, 1);
+    lcd.print(param[3]);
+    lcd.setCursor(12, 1);
+    lcd.print("s");
+    lcd.setCursor(0, 3);
+    lcd.print("<- back");
+    lcd.setCursor(9, 3);
+    lcd.print("<zmien>");
+    lcd.setCursor(18, 3);
+    lcd.print("next->");
+    lcd.display();
    
-		break;
-	  
-	case SPEED_MENU:
-		lcd.clear();
-		lcd.setCursor(4, 0);
-		lcd.print("<<PREDKOSC POMPKI>>");
-		lcd.setCursor(9, 1);
-		lcd.print(rpm);
-		lcd.setCursor(12, 1);
-		lcd.print("rpm");
-		lcd.setCursor(0, 3);
-		lcd.print("<- back");
-		lcd.setCursor(9, 3);
-		lcd.print("<zmien>");
-		lcd.setCursor(18, 3);
-		lcd.print("next->");
-		lcd.display();
-		break;
-	  
-	case START_IN_MANUAL_MODE_MENU:
-		lcd.clear();
-		lcd.setCursor(0, 0);
-		lcd.print("Nacisnij <ENTER> aby");
-		lcd.setCursor(0, 1);
-		lcd.print("rozpoczac test");
-		lcd.setCursor(0, 3);
-		lcd.print("<-zmien parametry");
-		lcd.display();
-		break; 
-		
-		
-	case UPPERPRESSURE_PARAM_MENU_CHANGE:
-		lcd.clear();
-		lcd.setCursor(4, 0);
-		lcd.print("<<NADCISNIENIE>>");
-		lcd.setCursor(0, 1);
-		lcd.print("Target: ");
-		lcd.setCursor(8, 1);
-		lcd.print(upperpressureValue);
-		lcd.setCursor(12, 1);
-		lcd.print("daPa");
-		lcd.setCursor(0, 3);
-		lcd.print("<-  -");
-		lcd.setCursor(7, 3);
-		lcd.print("<zaakceptuj>");
-		lcd.setCursor(19, 3);
-		lcd.print("+  ->");
-		lcd.display();
-		break;
-		
-	case LOWERRPRESSURE_PARAM_MENU_CHANGE:
-		lcd.clear();
-		lcd.setCursor(4, 0);
-		lcd.print("<<PODCISNIENIE>>");
-		lcd.setCursor(0, 1);
-		lcd.print("Target: ");
-		lcd.setCursor(8, 1);
-		lcd.print(lowerpressureValue);
-		lcd.setCursor(12, 1);
-		lcd.print("daPa");
-		lcd.setCursor(0, 3);
-		lcd.print("<-  -");
-		lcd.setCursor(7, 3);
-		lcd.print("<zaakceptuj>");
-		lcd.setCursor(19, 3);
-		lcd.print("+  ->");
-		lcd.display();
-		break;
-	case TEST_TIME_MENU_CHANGE:
-		lcd.clear();
-		lcd.setCursor(4, 0);
-		lcd.print("<<CZAS TESTU>>");
-		lcd.setCursor(9, 1);
-		lcd.print(testTime);
-		lcd.setCursor(12, 1);
-		lcd.print("s");
-		lcd.setCursor(0, 3);
-		lcd.print("<-  -");
-		lcd.setCursor(7, 3);
-		lcd.print("<zaakceptuj>");
-		lcd.setCursor(19, 3);
-		lcd.print("+  ->");
-		lcd.display();
-		
-	case SPEED_MENU_CHANGE:
-		lcd.clear();
-		lcd.setCursor(4, 0);
-		lcd.print("<<PREDKOSC POMPKI>>");
-		lcd.setCursor(9, 1);
-		lcd.print(rpm);
-		lcd.setCursor(12, 1);
-		lcd.print("rpm");
-		lcd.setCursor(0, 3);
-		lcd.print("<-  -");
-		lcd.setCursor(7, 3);
-		lcd.print("<zaakceptuj>");
-		lcd.setCursor(19, 3);
-		lcd.print("+  ->");
-		lcd.display();
-		break;
-	case MANUAL_TEST_MENU:
-		lcd.clear();
-		lcd.setCursor(0, 1);
-		lcd.print("Zawor: ");
-		lcd.setCursor(7, 1);
-		if(valve3Status)
-		{
-			lcd.print("zamkniety");
-		}else
-		{
-			lcd.print("otwarty");
-		}
-		lcd.setCursor(0, 3);
-		lcd.print("<-  -");
-		lcd.setCursor(7, 3);
-		lcd.print("<zawor>");
-		lcd.setCursor(19, 3);
-		lcd.print("+  ->");
-		lcd.display();
-		break;
+    break;
+    
+  case SPEED_MENU:
+    lcd.clear();
+    lcd.setCursor(4, 0);
+    lcd.print("<<PREDKOSC POMPKI>>");
+    lcd.setCursor(9, 1);
+    lcd.print(param[4]);
+    lcd.setCursor(12, 1);
+    lcd.print("rpm");
+    lcd.setCursor(0, 3);
+    lcd.print("<- back");
+    lcd.setCursor(9, 3);
+    lcd.print("<zmien>");
+    lcd.setCursor(18, 3);
+    lcd.print("next->");
+    lcd.display();
+    break;
+    
+  case START_IN_MANUAL_MODE_MENU:
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Nacisnij <ENTER> aby");
+    lcd.setCursor(0, 1);
+    lcd.print("rozpoczac test");
+    lcd.setCursor(0, 3);
+    lcd.print("<-zmien parametry");
+    lcd.display();
+    break; 
+    
+    
+  case UPPERPRESSURE_PARAM_MENU_CHANGE:
+    lcd.clear();
+    lcd.setCursor(4, 0);
+    lcd.print("<<NADCISNIENIE>>");
+    lcd.setCursor(0, 1);
+    lcd.print("Target: ");
+    lcd.setCursor(8, 1);
+    lcd.print(param[0]);
+    lcd.setCursor(12, 1);
+    lcd.print("daPa");
+    lcd.setCursor(0, 3);
+    lcd.print("<-  -");
+    lcd.setCursor(7, 3);
+    lcd.print("<zaakceptuj>");
+    lcd.setCursor(19, 3);
+    lcd.print("+  ->");
+    lcd.display();
+    break;
+    
+  case LOWERPRESSURE_PARAM_MENU_CHANGE:
+    lcd.clear();
+    lcd.setCursor(4, 0);
+    lcd.print("<<PODCISNIENIE>>");
+    lcd.setCursor(0, 1);
+    lcd.print("Target: ");
+    lcd.setCursor(8, 1);
+    lcd.print(param[1]);
+    lcd.setCursor(12, 1);
+    lcd.print("daPa");
+    lcd.setCursor(0, 3);
+    lcd.print("<-  -");
+    lcd.setCursor(7, 3);
+    lcd.print("<zaakceptuj>");
+    lcd.setCursor(19, 3);
+    lcd.print("+  ->");
+    lcd.display();
+    break;
+  case TEST_TIME_MENU_CHANGE:
+    lcd.clear();
+    lcd.setCursor(4, 0);
+    lcd.print("<<CZAS TESTU>>");
+    lcd.setCursor(9, 1);
+    lcd.print(param[2]);
+    lcd.setCursor(12, 1);
+    lcd.print("s");
+    lcd.setCursor(0, 3);
+    lcd.print("<-  -");
+    lcd.setCursor(7, 3);
+    lcd.print("<zaakceptuj>");
+    lcd.setCursor(19, 3);
+    lcd.print("+  ->");
+    lcd.display();
+    
+  case SPEED_MENU_CHANGE:
+    lcd.clear();
+    lcd.setCursor(4, 0);
+    lcd.print("<<PREDKOSC POMPKI>>");
+    lcd.setCursor(9, 1);
+    lcd.print(param[3]);
+    lcd.setCursor(12, 1);
+    lcd.print("rpm");
+    lcd.setCursor(0, 3);
+    lcd.print("<-  -");
+    lcd.setCursor(7, 3);
+    lcd.print("<zaakceptuj>");
+    lcd.setCursor(19, 3);
+    lcd.print("+  ->");
+    lcd.display();
+    break;
+  case MANUAL_TEST_MENU:
+    lcd.clear();
+    lcd.setCursor(0, 1);
+    lcd.print("Zawor: ");
+    lcd.setCursor(7, 1);
+    if(valve3Status)
+    {
+      lcd.print("zamkniety");
+    }else
+    {
+      lcd.print("otwarty");
+    }
+    lcd.setCursor(0, 3);
+    lcd.print("<-  -");
+    lcd.setCursor(7, 3);
+    lcd.print("<zawor>");
+    lcd.setCursor(19, 3);
+    lcd.print("+  ->");
+    lcd.display();
+    break;
 
     default:;
-	}
+  }
 }
 
 void DoTheUnderpressureTest()
@@ -400,7 +399,7 @@ void DoTheUnderpressureTest()
   calculatedPressure = readPressure();
   displayPressureMeasurement(calculatedPressure);
   digitalWrite(pumpControlPin, runPump);
-  while ((calculatedPressure = readPressure()) > lowerPressure && (digitalRead(enterKeyPin) != LOW)
+  while ( (calculatedPressure = readPressure()) > lowerPressure && (digitalRead(enterKeyPin) != LOW) )
   {
     if(i >= DISPLAY_DELAY_DURING_LEAKING_TEST)
       {
@@ -441,7 +440,7 @@ void DoTheUnderpressureTest()
     }else
     {
       displayPressureDeviationMeasurement(pressureDeviation);
-      while ( (( testTime = ((millis() / 1000) - startTime) ) < testTimeTmp) && (digitalRead(enterKeyPin) != LOW)
+      while (( ( testTime = ((millis() / 1000) - startTime) ) < testTimeTmp) && (digitalRead(enterKeyPin) != LOW) )
       {
         calculatedPressure = readPressure();
         pressureDeviation = refPressure - abs(calculatedPressure);
@@ -462,7 +461,7 @@ void DoTheUnderpressureTest()
       
       
   
-void DoTheOverpressureeTest()
+void DoTheOverpressureTest()
 {
   unsigned long pumpingTime = 1;
   unsigned long startTime = 0;
@@ -686,7 +685,7 @@ void displayVentingCommunicate()
 double readPressure()
 {
   int pressureSensorValue = analogRead(pressureSensorPin);
-  double calculatedPressure = -(pressureSensorValue - MANOMETER_OFFSET_VALUE) * 2.5641025641025641025641025641026;					// entered value is the K factor (should also be calibrated)
+  double calculatedPressure = -(pressureSensorValue - MANOMETER_OFFSET_VALUE) * 2.5641025641025641025641025641026;          // entered value is the K factor (should also be calibrated)
   return (calculatedPressure);
 }
 
@@ -723,157 +722,157 @@ void blockedError()
 //Pump control code
 void do_the_step (int delayTime_tmp)
 {
-  digitalWrite(stepSignalPin, LOW);
+  digitalWrite(pumpControlPin, LOW);
   delayMicroseconds(1000);
-  digitalWrite(stepSignalPin, HIGH);
+  digitalWrite(pumpControlPin, HIGH);
   delayMicroseconds(1000);
 }
-	
+  
 void handleMenu()
 { 
 int i = 0;
 int testsNumber = 0;
-int option = readButtonState();				// store button state
-if (option != DO_NOTHING)				
+int option = readButtonState();       // store button state
+if (option != DO_NOTHING)       
  {
-	if(currentMenu < 10)							//first menu layer
-	{
-		 switch (option)
-		{
-			case LEFT:
-				if(currentMenu != TEST_BEGIN)
-				{
-					currentMenu--;
-					showMenu(currentMenu);
-				}
-				break;
-			case RIGHT:
-				if(currentMenu != START_IN_MANUAL_MODE_MENU)
-				{
-					currentMenu++;
-					showMenu(currentMenu);
-				}
-				break;
-			case ENTER:
-				if(currentMenu != START_MENU && currentMenu != START_IN_MANUAL_MODE_MENU)			// go to second menu layer
-				{
-					currentMenu+=10;
-					showMenu(currentMenu);
-				}else if (currentMenu == START_MENU)																	// automatic test handle
-				{
-					showMenu(TEST_BEGIN);
-					if(lowerpressureStatus)																							// check if lowerPressure test should be done
-					{
-						DoTheUnderpressureTest();																				// do the lowerpressure test
-						testsNumber = UNDERPRESSURE_TEST;														//save that only lowerpressure test result should be viewed
-					}
-					if(upperpressureStatus)																							// check if upperPressure test should be done														
-					{
-						DoTheOverpressureTest();																					//do the upperPressure test
-						if(lowerpressureStatus)																						// if lowerpressure test have been done
-						{
-							testsNumber = BOTH_TESTS;																		// save that both tests results should be viewed
-						}else
-						{
-						testsNumber = OVERPRESSURE_TEST;															// else save that only upperPressure test result should be viewed
-						}
-					}
-					displayTestResult(testsNumber);																			// view test results and wait for clicking ENTER to accept it
-					currentMenu = START_MENU;																				// after displaying test results go back to main menu
-					showMenu(currentMenu);
-				}else if (currentMenu == START_IN_MANUAL_MODE_MENU)									// manualc test handle
-				{
-					showMenu(TEST_BEGIN);
-					showMenu(MANUAL_TEST_MENU);
-					calculatedPressure = readPressure();
-					displayPressureMeasurement(calculatedPressure);
-					digitalWrite(sleepPin, sleepOff);
-					while( digitalRead(leftArrowKeyPin) != buttonPressed && digitalRead(enterKeyPin) != buttonPressed)		//need to set up loop to not exit switch case
-					{
-						switch(readButtonState())																						//check which button have been clicked
-						{
-							case LEFT:
-								digitalWrite(directionSignalPin, backward);														// if left arrow has been clicked, set direction signal pin to backward
-								digitalWrite(pumpControlPin, runPump);															// run pump backward
-								while(digitalRead(leftArrowKeyPin) == buttonPressed )									// checking if button is still pressed 
-								{		
-									calculatedPressure = readPressure();
-									displayPressureMeasurement(calculatedPressure);
-									if(i >= DISPLAY_DELAY_DURING_PUMPING_TEST)
-									{	
-										displayPressureMeasurement(calculatedPressure);
-										i = 0;
-									}else
-									{
-										i++;
-									}
-								}
-								digitalWrite(pumpControlPin, stopPump);														// if button has been released just turn off pump							
-								break;
-							case RIGHT:
-								digitalWrite(directionSignalPin, forward);														// if right arrow has been clicked, set direction signal pin to backward
-								digitalWrite(pumpControlPin, runPump);															// run pump backward
-								while(digitalRead(rightArrowKeyPin) == buttonPressed )								// checking if button is still pressed 
-								{	
-									calculatedPressure = readPressure();
-									displayPressureMeasurement(calculatedPressure);
-									if(i >= DISPLAY_DELAY_DURING_PUMPING_TEST)
-									{	
-										displayPressureMeasurement(calculatedPressure);
-										i = 0;
-									}else
-									{
-										i++;
-									}																														
-								}
-								digitalWrite(pumpControlPin, stopPump);														// if button has been released just turn off pump
-								break;
-							case ENTER:																										// if enter button has been pressed just change valve state
-								if(digitalRead(valve3Pin) == valveOff)
-								{
-									digitalWrite(valve3Pin, valveOn)
-									valve3Status = true;
-								}else
-								{
-									digitalWrite(valve3Pin, valveOff)
-									valve3Status = false;
-								}
-								break;
-						}
-					}
-					digitalWrite(valve3Pin, valveOff);
-					digitalWrite(pumpControlPin, stopPump);
-					digitalWrite(sleepPin, sleepOn);
-					showMenu(currentMenu);
-				}
-				break;
-			default:;
-		}
-	}else //second menu layer (changing parameters)
-	{
-		switch (option)
-		{
-			case LEFT:
-				if(param[currentMenu - 12] > MAX_LOWERPRESSURE)
-				{
-					param[currentMenu - 12] -= add_value[currentMenu - 12];			//subtract one value point from the specyfied parameter
-					showMenu(currentMenu);
-				}
-				break;
-			case RIGHT:
-				if(param[currentMenu - 12] < MAX_UPERPRESSURE)
-				{
-					param[currentMenu - 12] += add_value[currentMenu + 12];			//add one value point from the specyfied parameter
-					showMenu(currentMenu);
-				}
-				break;
-			case ENTER:
-				currentMenu-=10;
-				showMenu(currentMenu);
-				break;
-			default:;
-		}
-	} 
+  if(currentMenu < 10)              //first menu layer
+  {
+     switch (option)
+    {
+      case LEFT:
+        if(currentMenu != TEST_BEGIN)
+        {
+          currentMenu--;
+          showMenu(currentMenu);
+        }
+        break;
+      case RIGHT:
+        if(currentMenu != START_IN_MANUAL_MODE_MENU)
+        {
+          currentMenu++;
+          showMenu(currentMenu);
+        }
+        break;
+      case ENTER:
+        if(currentMenu != START_MENU && currentMenu != START_IN_MANUAL_MODE_MENU)     // go to second menu layer
+        {
+          currentMenu+=10;
+          showMenu(currentMenu);
+        }else if (currentMenu == START_MENU)                                  // automatic test handle
+        {
+          showMenu(TEST_BEGIN);
+          if(lowerpressureStatus)                                             // check if lowerPressure test should be done
+          {
+            DoTheUnderpressureTest();                                       // do the lowerpressure test
+            testsNumber = UNDERPRESSURE_TEST;                               //save that only lowerpressure test result should be viewed
+          }
+          if(upperpressureStatus)                                             // check if upperPressure test should be done                           
+          {
+            DoTheOverpressureTest();                                          //do the upperPressure test
+            if(lowerpressureStatus)                                           // if lowerpressure test have been done
+            {
+              testsNumber = BOTH_TESTS;                                   // save that both tests results should be viewed
+            }else
+            {
+            testsNumber = OVERPRESSURE_TEST;                              // else save that only upperPressure test result should be viewed
+            }
+          }
+          displayTestResult(testsNumber);                                     // view test results and wait for clicking ENTER to accept it
+          currentMenu = START_MENU;                                       // after displaying test results go back to main menu
+          showMenu(currentMenu);
+        }else if (currentMenu == START_IN_MANUAL_MODE_MENU)                 // manualc test handle
+        {
+          showMenu(TEST_BEGIN);
+          showMenu(MANUAL_TEST_MENU);
+          calculatedPressure = readPressure();
+          displayPressureMeasurement(calculatedPressure);
+          digitalWrite(sleepPin, sleepOff);
+          while( digitalRead(leftArrowKeyPin) != buttonPressed && digitalRead(enterKeyPin) != buttonPressed)    //need to set up loop to not exit switch case
+          {
+            switch(readButtonState())                                           //check which button have been clicked
+            {
+              case LEFT:
+                digitalWrite(directionSignalPin, backward);                           // if left arrow has been clicked, set direction signal pin to backward
+                digitalWrite(pumpControlPin, runPump);                              // run pump backward
+                while(digitalRead(leftArrowKeyPin) == buttonPressed )                 // checking if button is still pressed 
+                {   
+                  calculatedPressure = readPressure();
+                  displayPressureMeasurement(calculatedPressure);
+                  if(i >= DISPLAY_DELAY_DURING_PUMPING_TEST)
+                  { 
+                    displayPressureMeasurement(calculatedPressure);
+                    i = 0;
+                  }else
+                  {
+                    i++;
+                  }
+                }
+                digitalWrite(pumpControlPin, stopPump);                           // if button has been released just turn off pump             
+                break;
+              case RIGHT:
+                digitalWrite(directionSignalPin, forward);                            // if right arrow has been clicked, set direction signal pin to backward
+                digitalWrite(pumpControlPin, runPump);                              // run pump backward
+                while(digitalRead(rightArrowKeyPin) == buttonPressed )                // checking if button is still pressed 
+                { 
+                  calculatedPressure = readPressure();
+                  displayPressureMeasurement(calculatedPressure);
+                  if(i >= DISPLAY_DELAY_DURING_PUMPING_TEST)
+                  { 
+                    displayPressureMeasurement(calculatedPressure);
+                    i = 0;
+                  }else
+                  {
+                    i++;
+                  }                                                           
+                }
+                digitalWrite(pumpControlPin, stopPump);                           // if button has been released just turn off pump
+                break;
+              case ENTER:                                                   // if enter button has been pressed just change valve state
+                if(digitalRead(valve3Pin) == valveOff)
+                {
+                  digitalWrite(valve3Pin, valveOn);
+                  valve3Status = true;
+                }else
+                {
+                  digitalWrite(valve3Pin, valveOff);
+                  valve3Status = false;
+                }
+                break;
+            }
+          }
+          digitalWrite(valve3Pin, valveOff);
+          digitalWrite(pumpControlPin, stopPump);
+          digitalWrite(sleepPin, sleepOn);
+          showMenu(currentMenu);
+        }
+        break;
+      default:;
+    }
+  }else //second menu layer (changing parameters)
+  {
+    switch (option)
+    {
+      case LEFT:
+        if(param[currentMenu - 12] > MAX_LOWERPRESSURE)
+        {
+          param[currentMenu - 12] -= add_value[currentMenu - 12];     //subtract one value point from the specyfied parameter
+          showMenu(currentMenu);
+        }
+        break;
+      case RIGHT:
+        if(param[currentMenu - 12] < MAX_UPPERPRESSURE)
+        {
+          param[currentMenu - 12] += add_value[currentMenu + 12];     //add one value point from the specyfied parameter
+          showMenu(currentMenu);
+        }
+        break;
+      case ENTER:
+        currentMenu-=10;
+        showMenu(currentMenu);
+        break;
+      default:;
+    }
+  } 
   }
 }
 
