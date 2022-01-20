@@ -1,4 +1,5 @@
 #include <LiquidCrystal.h>
+#include <Wire.h>
 
 #define pumpControlPin 13
 #define sleepPin 19
@@ -35,6 +36,7 @@
 #define TEST_TIME_MENU_CHANGE 14
 #define SPEED_MENU_CHANGE 15
 #define DO_NOTHING 0
+#define SLAVE_I2C_ADRESS 4                  //adress that has been set for slave i2c bus device (pump control arduino)
 
 #define NO_DEVICE_SELECTED 0
 #define IN_TEST_MENU 0
@@ -86,6 +88,8 @@ void blockedError();
 void showMenu(int currentMenu_tmp);
 void DoTheUnderpressureTest();
 void DoTheOverpressureeTest();
+void sendPumpSpeedToslave();
+void handleManualTest();
 double readPressure();
 double maxPressureDeviation[2] = {0, 0};
 int DUT = NO_DEVICE_SELECTED;
@@ -96,6 +100,7 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 void setup()
 {
   Serial.begin(9600);
+  Wire.begin(); 
   // set up pump controller:
   pinMode(sleepPin, OUTPUT);
   pinMode(pumpControlPin, OUTPUT);
@@ -380,6 +385,7 @@ void showMenu(int currentMenu_tmp)
 
 void DoTheUnderpressureTest()
 {
+  sendPumpSpeedToslave();
   unsigned long startTime = 0;
   unsigned long pumpingTime = 1;
   double refPressure = 0;
@@ -463,6 +469,7 @@ void DoTheUnderpressureTest()
   
 void DoTheOverpressureTest()
 {
+  sendPumpSpeedToslave();
   unsigned long pumpingTime = 1;
   unsigned long startTime = 0;
   double refPressure = 0;
@@ -537,6 +544,12 @@ void DoTheOverpressureTest()
       digitalWrite(valve3Pin, valveOff);     
 }
 
+void sendPumpSpeedToslave()
+{
+  Wire.beginTransmission(SLAVE_I2C_ADRESS);           // transmit to device #SLAVE_I2C_ADRESS
+  Wire.write(param[3]);                                     // sends pump speed
+  Wire.endTransmission();                             // stop transmitting
+}
 
 void dispalyTestBeginingCommunicate()
 {
@@ -761,89 +774,30 @@ if (option != DO_NOTHING)
         }else if (currentMenu == START_MENU)                                  // automatic test handle
         {
           showMenu(TEST_BEGIN);
-          if(lowerpressureStatus)                                             // check if lowerPressure test should be done
+          if(lowerpressureStatus)                                                    // check if lowerPressure test should be done
           {
-            DoTheUnderpressureTest();                                       // do the lowerpressure test
-            testsNumber = UNDERPRESSURE_TEST;                               //save that only lowerpressure test result should be viewed
+            DoTheUnderpressureTest();                                            // do the lowerpressure test
+            testsNumber = UNDERPRESSURE_TEST;                            //save that only lowerpressure test result should be viewed
           }
-          if(upperpressureStatus)                                             // check if upperPressure test should be done                           
+          if(upperpressureStatus)                                                    // check if upperPressure test should be done                           
           {
-            DoTheOverpressureTest();                                          //do the upperPressure test
-            if(lowerpressureStatus)                                           // if lowerpressure test have been done
+            DoTheOverpressureTest();                                              //do the upperPressure test
+            if(lowerpressureStatus)                                                 // if lowerpressure test have been done
             {
-              testsNumber = BOTH_TESTS;                                   // save that both tests results should be viewed
+              testsNumber = BOTH_TESTS;                                         // save that both tests results should be viewed
             }else
             {
-            testsNumber = OVERPRESSURE_TEST;                              // else save that only upperPressure test result should be viewed
+            testsNumber = OVERPRESSURE_TEST;                                // else save that only upperPressure test result should be viewed
             }
           }
-          displayTestResult(testsNumber);                                     // view test results and wait for clicking ENTER to accept it
-          currentMenu = START_MENU;                                       // after displaying test results go back to main menu
+          displayTestResult(testsNumber);                                                    // view test results and wait for clicking ENTER to accept it
+          currentMenu = START_MENU;                                                    // after displaying test results go back to main menu
           showMenu(currentMenu);
-        }else if (currentMenu == START_IN_MANUAL_MODE_MENU)                 // manualc test handle
+        }else if (currentMenu == START_IN_MANUAL_MODE_MENU)                   // manualc test handle
         {
-          showMenu(TEST_BEGIN);
-          showMenu(MANUAL_TEST_MENU);
-          calculatedPressure = readPressure();
-          displayPressureMeasurement(calculatedPressure);
-          digitalWrite(sleepPin, sleepOff);
-          while( digitalRead(leftArrowKeyPin) != buttonPressed && digitalRead(enterKeyPin) != buttonPressed)    //need to set up loop to not exit switch case
-          {
-            switch(readButtonState())                                           //check which button have been clicked
-            {
-              case LEFT:
-                digitalWrite(directionSignalPin, backward);                           // if left arrow has been clicked, set direction signal pin to backward
-                digitalWrite(pumpControlPin, runPump);                              // run pump backward
-                while(digitalRead(leftArrowKeyPin) == buttonPressed )                 // checking if button is still pressed 
-                {   
-                  calculatedPressure = readPressure();
-                  displayPressureMeasurement(calculatedPressure);
-                  if(i >= DISPLAY_DELAY_DURING_PUMPING_TEST)
-                  { 
-                    displayPressureMeasurement(calculatedPressure);
-                    i = 0;
-                  }else
-                  {
-                    i++;
-                  }
-                }
-                digitalWrite(pumpControlPin, stopPump);                           // if button has been released just turn off pump             
-                break;
-              case RIGHT:
-                digitalWrite(directionSignalPin, forward);                            // if right arrow has been clicked, set direction signal pin to backward
-                digitalWrite(pumpControlPin, runPump);                              // run pump backward
-                while(digitalRead(rightArrowKeyPin) == buttonPressed )                // checking if button is still pressed 
-                { 
-                  calculatedPressure = readPressure();
-                  displayPressureMeasurement(calculatedPressure);
-                  if(i >= DISPLAY_DELAY_DURING_PUMPING_TEST)
-                  { 
-                    displayPressureMeasurement(calculatedPressure);
-                    i = 0;
-                  }else
-                  {
-                    i++;
-                  }                                                           
-                }
-                digitalWrite(pumpControlPin, stopPump);                           // if button has been released just turn off pump
-                break;
-              case ENTER:                                                   // if enter button has been pressed just change valve state
-                if(digitalRead(valve3Pin) == valveOff)
-                {
-                  digitalWrite(valve3Pin, valveOn);
-                  valve3Status = true;
-                }else
-                {
-                  digitalWrite(valve3Pin, valveOff);
-                  valve3Status = false;
-                }
-                break;
-            }
-          }
-          digitalWrite(valve3Pin, valveOff);
-          digitalWrite(pumpControlPin, stopPump);
-          digitalWrite(sleepPin, sleepOn);
-          showMenu(currentMenu);
+      showMenu(TEST_BEGIN);
+      void handleManualTest();
+      showMenu(currentMenu);
         }
         break;
       default:;
@@ -874,6 +828,71 @@ if (option != DO_NOTHING)
     }
   } 
   }
+}
+
+void handleManualTest()
+{
+  sendPumpSpeedToslave();
+    showMenu(MANUAL_TEST_MENU);
+    calculatedPressure = readPressure();
+    displayPressureMeasurement(calculatedPressure);
+    digitalWrite(sleepPin, sleepOff);
+    while( digitalRead(leftArrowKeyPin) != buttonPressed && digitalRead(enterKeyPin) != buttonPressed)    //need to set up loop to not exit switch case
+    {
+        switch(readButtonState())                                           //check which button have been clicked
+        {
+            case LEFT:
+        digitalWrite(directionSignalPin, backward);                           // if left arrow has been clicked, set direction signal pin to backward
+        digitalWrite(pumpControlPin, runPump);                              // run pump backward
+        while(digitalRead(leftArrowKeyPin) == buttonPressed )                 // checking if button is still pressed 
+        {   
+          calculatedPressure = readPressure();
+          displayPressureMeasurement(calculatedPressure);
+          if(i >= DISPLAY_DELAY_DURING_PUMPING_TEST)
+          { 
+            displayPressureMeasurement(calculatedPressure);
+            i = 0;
+          }else
+          {
+            i++;
+          }
+        }
+        digitalWrite(pumpControlPin, stopPump);                           // if button has been released just turn off pump             
+        break;
+            case RIGHT:
+                digitalWrite(directionSignalPin, forward);                            // if right arrow has been clicked, set direction signal pin to backward
+                digitalWrite(pumpControlPin, runPump);                              // run pump backward
+                while(digitalRead(rightArrowKeyPin) == buttonPressed )                // checking if button is still pressed 
+                { 
+          calculatedPressure = readPressure();
+          displayPressureMeasurement(calculatedPressure);
+          if(i >= DISPLAY_DELAY_DURING_PUMPING_TEST)
+          { 
+            displayPressureMeasurement(calculatedPressure);
+            i = 0;
+          }else
+          {
+            i++;
+          }                                                           
+                }
+                digitalWrite(pumpControlPin, stopPump);                           // if button has been released just turn off pump
+                break;
+            case ENTER:                                                   // if enter button has been pressed just change valve state
+                if(digitalRead(valve3Pin) == valveOff)
+                {
+          digitalWrite(valve3Pin, valveOn);
+          valve3Status = true;
+                }else
+                {
+          digitalWrite(valve3Pin, valveOff);
+          valve3Status = false;
+                }
+                break;
+        }
+    }
+    digitalWrite(valve3Pin, valveOff);
+    digitalWrite(pumpControlPin, stopPump);
+    digitalWrite(sleepPin, sleepOn);  
 }
 
 
