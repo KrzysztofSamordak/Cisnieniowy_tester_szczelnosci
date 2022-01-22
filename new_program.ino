@@ -30,12 +30,21 @@
 #define TEST_TIME_MENU 4
 #define SPEED_MENU 5
 #define START_IN_MANUAL_MODE_MENU 6
-#define MANUAL_TEST_MENU 7
+#define CALIBRATION_MENU 7
+#define MANUAL_TEST_MENU 8
+#define VERIFY_PASSWORD_MENU 9
+#define CALIBRATION_BEGIN 20
+#define CALIBRATION_STEP1 21
+#define CALIBRATION_STEP2 22
+#define CALIBRATION_STEP3 23
+#define CALIBRATION_DONE 24
 #define UPPERPRESSURE_PARAM_MENU_CHANGE 12
 #define LOWERPRESSURE_PARAM_MENU_CHANGE 13
 #define TEST_TIME_MENU_CHANGE 14
 #define SPEED_MENU_CHANGE 15
 #define DO_NOTHING 0
+#define FAIL 0
+#define PASS 1
 #define SLAVE_I2C_ADRESS 4                  //adress that has been set for slave i2c bus device (pump control arduino)
 
 #define NO_DEVICE_SELECTED 0
@@ -45,19 +54,23 @@
 #define BOTH_TESTS 2
 
 ///////// config //////////
+#define pressureDeviationLimitForSelfTest 10                // maximal pressure deviation limit for self test - in daPa           
+#define CALIBRATION_LOWERPRESSURE_VALUE -400      // lowerpressure value that as to be set for calibration - in daPa
+#define CALIBRATION_UPPERPRESSURE_VALUE 600     // upperpressure value that as to be set for calibration - in daPa
+#define READ_MANOMETER_OFFSET_SAMPLES 10    // number of samples that should been taken to calulate the offset value for manometer
 #define DEFAULT_UPPERPRESSURE 400                 // default upperpressure after program start - in daPa
 #define DEFAULT_LOWERPRESSURE -400                // default lowerpressure after program start - in daPa
 #define DEFAULT_TEST_TIME 10                      // default test time after program start - in seconds
 #define DEFAULT_PUMP_SPEED                        // default pump speed level after program start
 #define DISPLAY_DELAY_DURING_PUMPING_TEST 500     //cycles
-#define DISPLAY_DELAY_DURING_LEAKING_TEST 1500    //cycles
-#define MANOMETER_OFFSET_VALUE 501                // manometer offset value - used for calibration
+#define DISPLAY_DELAY_DURING_LEAKING_TEST 1500    //cycles             
 #define PRESSURE_DEVIATION_BEFORE_TEST 80         //dPa
 #define DEFAULT_PRESSURE_DEVIATION_LIMIT 10       //dPa
 #define MAX_LOWERPRESSURE -1000                   // maximal lowerpressure that can be set
 #define MAX_UPPERPRESSURE 1000                    // maximal upperpressure that can be set
-
-
+int password[5] = {LEFT, RIGHT, RIGHT, RIGHT, ENTER};         // passowrd to enter calibration mode - only 5 signs can be set
+double manometerOffset = 501;      //////// to do - odczytaj offset z internal eepromu       // manometer offset value - default is 501  
+double manometerKFactor = 2.564102564102564;        //////// to do - odczytaj K z internal eepromu       // entered value is the K factor (should also be calibrated)
 
 int delayTime;
 double calculatedPressure;
@@ -75,6 +88,8 @@ int returnKeyDetect;
 int readButtonState();
 bool upperpressureStatus = true;
 bool lowerpressureStatus = true;
+bool verifyPassword();
+bool selfTest();
 void dispalyTestBeginingCommunicate();
 void displayPressureMeasurement(double calculatedPressure);
 void displayPressureDeviationMeasurement(double pressureDeviation);
@@ -90,8 +105,13 @@ void DoTheUnderpressureTest();
 void DoTheOverpressureeTest();
 void sendPumpSpeedToslave();
 void handleManualTest();
+void DoTheCalibration();
+void displaySelfTestResult(int result);
+void waitForENTER();
 double readPressure();
 double maxPressureDeviation[2] = {0, 0};
+double readManometerOffset();
+double readManometerKFactor();
 int DUT = NO_DEVICE_SELECTED;
 int currentMenu = 1;
 const int rs = 7, en = 6, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
@@ -257,7 +277,6 @@ void showMenu(int currentMenu_tmp)
     lcd.setCursor(18, 3);
     lcd.print("next->");
     lcd.display();
-   
     break;
     
   case SPEED_MENU:
@@ -378,7 +397,101 @@ void showMenu(int currentMenu_tmp)
     lcd.print("+  ->");
     lcd.display();
     break;
+  
+  case CALIBRATION_MENU:
+    lcd.clear();
+    lcd.setCursor(4, 0);
+    lcd.print("<<KALIBRACJA>>");
+    lcd.setCursor(0, 3);
+    lcd.print("<- back");
+    lcd.setCursor(9, 3);
+    lcd.print("<zmien>");
+    lcd.display();
+    break;
+  
+   case VERIFY_PASSWORD_MENU:
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Aby dokonac strojenia");
+    lcd.setCursor(0, 1);
+    lcd.print("testera, podaj haslo: ");
+    lcd.display();
+    break;
+  
+   case CALIBRATION_BEGIN:
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Rozpoczynam strojenie");
+    lcd.display();
+    delay(1000);
+    lcd.setCursor(0, 0);
+    lcd.print("Rozpoczynam strojenie.");
+    lcd.display();
+    delay(1000);
+    lcd.setCursor(0, 0);
+    lcd.print("Rozpoczynam strojenie..");
+    lcd.display();
+    delay(1000);
+    lcd.setCursor(0, 0);
+    lcd.print("Rozpoczynam strojenie...");
+    lcd.display();
+    delay(500);
+    break;
 
+   case CALIBRATION_STEP1:
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Odlacz wszystko od");
+  lcd.setCursor(0, 1);
+    lcd.print("gniazda cisnienia i");
+  lcd.setCursor(0, 2);
+    lcd.print("nacisnij <ENTER>");
+  lcd.display();
+    break; 
+  
+   case CALIBRATION_STEP2:
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("podlacz referencyjny");
+  lcd.setCursor(0, 1);
+    lcd.print("manometr do gniazda");
+  lcd.setCursor(0, 2);
+    lcd.print("cisnienia, podaj ");
+  lcd.setCursor(17, 2);
+  lcd.print(CALIBRATION_LOWERPRESSURE_VALUE);
+  lcd.setCursor(20, 2);
+  lcd.print("daPa");
+    lcd.setCursor(0, 3);
+  lcd.print("i nacisnij <ENTER>");
+  lcd.display();
+    break;
+   case CALIBRATION_STEP3:
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("podlacz referencyjny");
+  lcd.setCursor(0, 1);
+    lcd.print("manometr do gniazda");
+  lcd.setCursor(0, 2);
+    lcd.print("cisnienia, podaj ");
+  lcd.setCursor(17, 2);
+  lcd.print(CALIBRATION_UPPERPRESSURE_VALUE);
+  lcd.setCursor(20, 2);
+  lcd.print("daPa");
+    lcd.setCursor(0, 3);
+  lcd.print("i nacisnij <ENTER>");
+  lcd.display();
+    break;
+   case CALIBRATION_DONE:
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Strojenie zakonczone!");
+  lcd.setCursor(0, 1);
+  lcd.print("Nacisnij <ENTER> aby");
+  lcd.setCursor(0, 2);
+  lcd.print("wyjsc.");
+  lcd.display();
+    break;
+  
     default:;
   }
 }
@@ -418,18 +531,6 @@ void DoTheUnderpressureTest()
   }
   digitalWrite(pumpControlPin, stopPump);
   digitalWrite(sleepPin, sleepOn);
-  /*if ( pumpingTime >= PUMPING_MAX_TIME || pumpingTime <= PUMPING_MIN_TIME)
-  {
-    if(pumpingTime <= PUMPING_MIN_TIME)
-    {
-      blockedError();
-    }else
-    {
-      pressureError();
-    }
-  }else
-  {
-  */
     testTime = 0;
     i = 0;  
     displayPressureMeasurement(calculatedPressure);
@@ -465,8 +566,6 @@ void DoTheUnderpressureTest()
       digitalWrite(valve3Pin, valveOff);
 }
       
-      
-  
 void DoTheOverpressureTest()
 {
   sendPumpSpeedToslave();
@@ -501,18 +600,7 @@ void DoTheOverpressureTest()
   }
     digitalWrite(sleepPin, sleepOn);
     digitalWrite(pumpControlPin, stopPump);
-    /* if ( pumpingTime >= PUMPING_MAX_TIME || pumpingTime <= PUMPING_MIN_TIME)
-    {
-      if(pumpingTime <= PUMPING_MIN_TIME)
-    {
-      blockedError();
-    }else
-    {
-      pressureError();
-    }
-    }else
-    {
-    */
+    
       testTime = 0;
       i = 0;  
       displayPressureMeasurement(calculatedPressure);
@@ -527,10 +615,7 @@ void DoTheOverpressureTest()
       {
         calculatedPressure = readPressure();
         pressureDeviation = refPressure - abs(calculatedPressure);
-        // if (pressureDeviation > maxPressureDeviation[OVERPRESSURE_TEST])
-        // {
-         maxPressureDeviation[OVERPRESSURE_TEST] = pressureDeviation;
-        //  }
+        maxPressureDeviation[OVERPRESSURE_TEST] = pressureDeviation;
         if (i >= DISPLAY_DELAY_DURING_LEAKING_TEST)
         {
           displayTestTime (testTime, testTimeTmp);
@@ -547,8 +632,8 @@ void DoTheOverpressureTest()
 void sendPumpSpeedToslave()
 {
   Wire.beginTransmission(SLAVE_I2C_ADRESS);           // transmit to device #SLAVE_I2C_ADRESS
-  Wire.write(param[3]);                                     // sends pump speed
-  Wire.endTransmission();                             // stop transmitting
+  Wire.write(param[3]);                                           // sends pump speed
+  Wire.endTransmission();                                    // stop transmitting
 }
 
 void dispalyTestBeginingCommunicate()
@@ -597,15 +682,34 @@ void displayTestResult(int testsNumber)
     lcd.print("daPa");   
   }
       lcd.display();
-      returnKeyDetect = readButtonState();
-      while(returnKeyDetect != ENTER)
-      {
-        returnKeyDetect = readButtonState();
-      }
-        while(returnKeyDetect == ENTER)
-      {
-        returnKeyDetect = readButtonState(); 
-      }
+    waitForENTER();
+}
+
+void displaySelfTestResult(int result)
+{
+  if(result == PASS)
+  {
+    lcd.clear();
+    lcd.setCursor(5, 0);
+    lcd.print("SELF TEST");
+    lcd.setCursor(5, 1);
+    lcd.print("<<PASS>>");
+    lcd.setCursor(5, 2);
+    lcd.print("Wcisnij <ENTER> aby");
+    lcd.setCursor(5, 3);
+    lcd.print("przejsc dalej");   
+  }else
+  {
+    lcd.clear();
+    lcd.setCursor(5, 0);
+    lcd.print("SELF TEST");
+    lcd.setCursor(5, 1);
+    lcd.print("<<FAIL>>");
+    lcd.setCursor(5, 2);
+    lcd.print("Zawiadom dzial techniczny");   
+  }
+    lcd.display();
+  waitForENTER();
 }
 
 int calculate_frequency(int rpm_tmp)
@@ -698,7 +802,7 @@ void displayVentingCommunicate()
 double readPressure()
 {
   int pressureSensorValue = analogRead(pressureSensorPin);
-  double calculatedPressure = -(pressureSensorValue - MANOMETER_OFFSET_VALUE) * 2.5641025641025641025641025641026;          // entered value is the K factor (should also be calibrated)
+  double calculatedPressure = -(pressureSensorValue - manometerOffset) * manometerKFactor;         
   return (calculatedPressure);
 }
 
@@ -706,30 +810,14 @@ void pressureError()
 {
   digitalWrite(valve3Pin, valveOff);
   displayPressureError();
-  returnKeyDetect = readButtonState();
-  while(returnKeyDetect != ENTER)
-  {
-    returnKeyDetect = readButtonState();
-  }
-  while(returnKeyDetect == ENTER)
-  {
-    returnKeyDetect = readButtonState(); 
-  }
+  waitForENTER();
 }
 
 void blockedError()
 {
   digitalWrite(valve3Pin, valveOff);
   displayBlockedError();
-  returnKeyDetect = readButtonState();
-  while(returnKeyDetect != ENTER)
-  {
-    returnKeyDetect = readButtonState();
-  }
-  while(returnKeyDetect == ENTER)
-  {
-    returnKeyDetect = readButtonState(); 
-  }
+  waitForENTER();
 }
 
 //Pump control code
@@ -760,14 +848,14 @@ if (option != DO_NOTHING)
         }
         break;
       case RIGHT:
-        if(currentMenu != START_IN_MANUAL_MODE_MENU)
+        if(currentMenu != CALIBRATION_MENU)
         {
           currentMenu++;
           showMenu(currentMenu);
         }
         break;
       case ENTER:
-        if(currentMenu != START_MENU && currentMenu != START_IN_MANUAL_MODE_MENU)     // go to second menu layer
+        if(currentMenu != START_MENU && currentMenu != START_IN_MANUAL_MODE_MENU && currentMenu != CALIBRATION_MENU)     // go to second menu layer
         {
           currentMenu+=10;
           showMenu(currentMenu);
@@ -781,24 +869,35 @@ if (option != DO_NOTHING)
           }
           if(upperpressureStatus)                                                    // check if upperPressure test should be done                           
           {
-            DoTheOverpressureTest();                                              //do the upperPressure test
+      DoTheOverpressureTest();                                              //do the upperPressure test
             if(lowerpressureStatus)                                                 // if lowerpressure test have been done
             {
-              testsNumber = BOTH_TESTS;                                         // save that both tests results should be viewed
+        testsNumber = BOTH_TESTS;                                         // save that both tests results should be viewed
             }else
             {
-            testsNumber = OVERPRESSURE_TEST;                                // else save that only upperPressure test result should be viewed
+        testsNumber = OVERPRESSURE_TEST;                                // else save that only upperPressure test result should be viewed
             }
           }
           displayTestResult(testsNumber);                                                    // view test results and wait for clicking ENTER to accept it
           currentMenu = START_MENU;                                                    // after displaying test results go back to main menu
           showMenu(currentMenu);
-        }else if (currentMenu == START_IN_MANUAL_MODE_MENU)                   // manualc test handle
+        }else if (currentMenu == START_IN_MANUAL_MODE_MENU)                   // manual test handle
         {
       showMenu(TEST_BEGIN);
-      void handleManualTest();
+      handleManualTest();
       showMenu(currentMenu);
-        }
+        }else if (currentMenu == CALIBRATION_MENU)
+    {
+      showMenu(VERIFY_PASSWORD_MENU);
+      if (verifyPassword())
+      {
+        DoTheCalibration();
+        showMenu(currentMenu);
+      }else
+      {
+        showMenu(currentMenu);
+      }
+    }
         break;
       default:;
     }
@@ -895,4 +994,90 @@ void handleManualTest()
     digitalWrite(sleepPin, sleepOn);  
 }
 
+bool verifyPassword()
+{
+  int enteredPassword[5];
+  bool returnValue = true;
+  for (int i = 0; i < 5; i++)
+  {
+    while(readButtonState() == DO_NOTHING)
+    {
+    }
+    enteredPassword[i] = readButtonState();
+    if(enteredPassword[i] != password[i])
+    {
+      returnValue = false;
+    }
+  }
+  return returnValue;
+}
 
+void DoTheCalibration()
+{
+  showMenu(CALIBRATION_BEGIN);
+  manometerOffset = readManometerOffset();
+  // to do - napisz zapis manometerOffset do internal eepromu
+  manometerKFactor = readManometerKFactor();
+  // to do - napisz zapis K do internal eepromu
+  showMenu(CALIBRATION_DONE);
+  waitForENTER();
+}
+
+double readManometerOffset()
+{
+  double readPressureValue = 0;
+  
+  showMenu(CALIBRATION_STEP1);
+  waitForENTER();
+  for (int i = 0; i < READ_MANOMETER_OFFSET_SAMPLES; i++)
+  {
+    readPressureValue += readPressure();
+  }
+  readPressureValue = readPressureValue / READ_MANOMETER_OFFSET_SAMPLES;
+  return readPressureValue;
+}
+
+double readManometerKFactor()
+{
+  double calculatedPressure;
+  double K = 0;
+  int pressureSensorValue = analogRead(pressureSensorPin);
+  
+  showMenu(CALIBRATION_STEP2);
+  waitForENTER();
+  calculatedPressure = -(pressureSensorValue - manometerOffset) * manometerKFactor;
+  K = -(calculatedPressure / ( -(pressureSensorValue - manometerOffset)) );
+  showMenu(CALIBRATION_STEP3);
+  waitForENTER();
+  calculatedPressure = -(pressureSensorValue - manometerOffset) * manometerKFactor;
+  K = K + (calculatedPressure / ( -(pressureSensorValue - manometerOffset)));
+  K = K / 2;
+  return K;
+}
+
+bool selfTest()
+{
+  DoTheUnderpressureTest();
+  delay(1000);  
+  DoTheOverpressureTest();
+  if (abs( maxPressureDeviation[UNDERPRESSURE_TEST] ) > pressureDeviationLimitForSelfTest  || abs( maxPressureDeviation[OVERPRESSURE_TEST] ) > pressureDeviationLimitForSelfTest )
+  {
+    displaySelfTestResult(FAIL);
+  }else
+  {
+    displaySelfTestResult(PASS);      
+  }
+}
+
+void waitForENTER()
+{
+  returnKeyDetect = readButtonState();
+  while(returnKeyDetect != ENTER)
+  {
+    returnKeyDetect = readButtonState();
+  }
+  while(returnKeyDetect == ENTER)
+  {
+    returnKeyDetect = readButtonState(); 
+  }
+}
