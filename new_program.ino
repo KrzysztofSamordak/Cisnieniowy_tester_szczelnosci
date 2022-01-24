@@ -1,5 +1,6 @@
 #include <LiquidCrystal.h>
 #include <Wire.h>
+#include <EEPROM.h>
 
 #define pumpControlPin 13
 #define sleepPin 19
@@ -54,6 +55,8 @@
 #define BOTH_TESTS 2
 
 ///////// config //////////
+#define eeAddressOffset 0                             //Eeprom adress at which manometer offset is stored
+#define eeAddressK 4                               //Eeprom adress at which manometer K factor is stored
 #define pressureDeviationLimitForSelfTest 10                // maximal pressure deviation limit for self test - in daPa           
 #define CALIBRATION_LOWERPRESSURE_VALUE -400      // lowerpressure value that as to be set for calibration - in daPa
 #define CALIBRATION_UPPERPRESSURE_VALUE 600     // upperpressure value that as to be set for calibration - in daPa
@@ -70,8 +73,7 @@
 #define MAX_UPPERPRESSURE 1000                    // maximal upperpressure that can be set
 int password[5] = {LEFT, RIGHT, RIGHT, RIGHT, ENTER};         // passowrd to enter calibration mode - only 5 signs can be set
 double manometerOffset = 501;      //////// to do - odczytaj offset z internal eepromu       // manometer offset value - default is 501  
-double manometerKFactor = 2.564102564102564;        //////// to do - odczytaj K z internal eepromu       // entered value is the K factor (should also be calibrated)
-
+double manometerKFactor = 2.564102564102564;        // entered value is the K factor (should also be calibrated)
 int delayTime;
 double calculatedPressure;
 bool valve3Status = false;
@@ -142,6 +144,12 @@ void setup()
   
   // set up the LCD's number of columns and rows:
   lcd.begin(20, 4);
+  // read required calibration parameters from internal Eeprom
+  //EEPROM.get(eeAddressOffset, manometerOffset);
+  //EEPROM.get(eeAddressK, manometerKFactor);
+  
+  //Do the self-test and go to welcome screen
+  selfTest();
   showMenu(START_MENU);
 }
   ////////////////////// Main program loop //////////////////////
@@ -1014,11 +1022,18 @@ bool verifyPassword()
 
 void DoTheCalibration()
 {
+  double tmp;
   showMenu(CALIBRATION_BEGIN);
   manometerOffset = readManometerOffset();
-  // to do - napisz zapis manometerOffset do internal eepromu
+  do{
+    EEPROM.put(eeAddressOffset, manometerOffset);
+    delay(500);   
+  } while(EEPROM.get(eeAddressOffset, tmp) != manometerOffset);
   manometerKFactor = readManometerKFactor();
-  // to do - napisz zapis K do internal eepromu
+  do{
+      EEPROM.put(eeAddressK, manometerKFactor);
+      delay(500);
+  } while(EEPROM.get(eeAddressK, tmp) != manometerKFactor);
   showMenu(CALIBRATION_DONE);
   waitForENTER();
 }
