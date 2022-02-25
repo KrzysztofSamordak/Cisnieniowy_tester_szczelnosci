@@ -21,6 +21,8 @@
 #define valveOn HIGH
 #define sleepOn LOW
 #define sleepOff HIGH
+#define ON 1
+#define OFF 0
 #define LEFT 1
 #define RIGHT 2
 #define ENTER 3
@@ -68,7 +70,7 @@
 #define DEFAULT_LOWERPRESSURE -400                // default lowerpressure after program start - in daPa
 #define DEFAULT_TEST_TIME 5                      // default test time after program start - in seconds
 #define DEFAULT_PUMP_SPEED 5                       // default pump speed level after program start
-#define DISPLAY_DELAY_DURING_PUMPING_TEST 2250     //cycles
+#define DISPLAY_DELAY_DURING_PUMPING_TEST 1800     //cycles
 #define DISPLAY_DELAY_DURING_LEAKING_TEST 2000    //cycles             
 #define PRESSURE_DEVIATION_BEFORE_TEST 80         //dPa
 #define DEFAULT_PRESSURE_DEVIATION_LIMIT 10       //dPa
@@ -81,7 +83,7 @@ double calculatedPressure;
 bool valve3Status = false;
 int param[4] = {DEFAULT_UPPERPRESSURE, DEFAULT_LOWERPRESSURE, DEFAULT_TEST_TIME, DEFAULT_PUMP_SPEED};                       //store parameters' values for specyfied tests
  
-int add_value[4] = {10, 10, 1, 1};                     //store the value representing one point of param   
+int add_value[4] = {10, 10, 1, -1};                     //store the value representing one point of param   
                                                        //adding 1 value point to UPPERPRESSURE param will add 10 dPa
                                                       //adding 1 value point to LOWERPRESSURE param will add 10 dPa
                                                       //adding 1 value point to TEST_TIME param will add 1s
@@ -302,7 +304,13 @@ void showMenu(int currentMenu_tmp)                //handle displaying menus and 
     lcd.setCursor(1, 0);
     lcd.print("<<PREDKOSC POMPKI>>");
     lcd.setCursor(8, 1);
-    lcd.print(param[3]*10);
+    if(param[3] != 1 && param[3] != 10)
+    {
+      lcd.print((10 - param[3]) * 10);
+    }else
+    {
+      lcd.print((1 + (10 - param[3])) * 10);
+    }
     lcd.setCursor(11, 1);
     lcd.print("%");
     lcd.setCursor(0, 3);
@@ -390,7 +398,13 @@ void showMenu(int currentMenu_tmp)                //handle displaying menus and 
     lcd.setCursor(1, 0);
     lcd.print("<<PREDKOSC POMPKI>>");
     lcd.setCursor(8, 1);
-    lcd.print(param[3] * 10);
+    if(param[3] != 1 && param[3] != 10)
+    {
+      lcd.print((10 - param[3]) * 10);
+    }else
+    {
+    lcd.print((1 + (10 - param[3])) * 10);
+    }
     lcd.setCursor(11, 1);
     lcd.print("%");
     lcd.setCursor(0, 3);
@@ -583,7 +597,7 @@ void DoTheUnderpressureTest()
     testTime = 0;
     i = 0;  
     displayPressureMeasurement(calculatedPressure);
-    delay(3000);
+    delay(2000);
     displayPressureMeasurement(calculatedPressure);
     displayPressureDeviationMeasurement(pressureDeviation);
     startTime = ( millis() / 1000 );
@@ -649,11 +663,10 @@ void DoTheOverpressureTest()
   }
     digitalWrite(sleepPin, sleepOn);
     digitalWrite(pumpControlPin, stopPump);
-    
       testTime = 0;
       i = 0;  
       displayPressureMeasurement(calculatedPressure);
-      delay(3000);
+      delay(2000);
       displayPressureMeasurement(calculatedPressure);
       displayPressureDeviationMeasurement(abs(pressureDeviation));
       startTime = ( millis() / 1000 );
@@ -765,9 +778,9 @@ void displayPressureMeasurement(double calculatedPressure)
   lcd.setCursor(0, 0);
   lcd.print("Cisnienie: ");
   lcd.setCursor(11, 0);
-  lcd.print(calculatedPressure);
-  lcd.setCursor(17, 0);
-  lcd.print("dPa");
+  lcd.print("        ");
+  lcd.setCursor(11, 0);
+  lcd.print(calculatedPressure, 1);
   lcd.display();
 }
 
@@ -955,7 +968,7 @@ if (option != DO_NOTHING)
          while(digitalRead(leftArrowKeyPin) == LOW)
          {
            delay(80);
-           if(param[0] > MAX_LOWERPRESSURE && param[1] > MAX_LOWERPRESSURE && param[3] > 1  && param[2] > 1)
+           if(param[0] > MAX_LOWERPRESSURE && param[1] > MAX_LOWERPRESSURE && param[3] < 10  && param[2] >1)
            {
             param[currentMenu - 12] -= add_value[currentMenu - 12];     //subtract one value point from the specyfied parameter
             showMenu(currentMenu);
@@ -971,7 +984,7 @@ if (option != DO_NOTHING)
            {
             param[2] -= add_value[2];
             showMenu(currentMenu);
-           }else if (currentMenu == SPEED_MENU_CHANGE && param[3] > 1)
+           }else if (currentMenu == SPEED_MENU_CHANGE && param[3] < 10)
            {
             param[3] -= add_value[3];
             showMenu(currentMenu); 
@@ -982,7 +995,7 @@ if (option != DO_NOTHING)
           while(digitalRead(rightArrowKeyPin) == LOW)
           {
            delay(80);
-           if(param[0] < MAX_UPPERPRESSURE && param[1] < MAX_UPPERPRESSURE && param[2] < 60 && param[3] < 10)
+           if(param[0] < MAX_UPPERPRESSURE && param[1] < MAX_UPPERPRESSURE && param[2] < 60 && param[3] > 1)
            {
             param[currentMenu - 12] += add_value[currentMenu - 12];     //subtract one value point from the specyfied parameter
             showMenu(currentMenu);
@@ -999,7 +1012,7 @@ if (option != DO_NOTHING)
            {
             param[2] += add_value[2];
             showMenu(currentMenu);
-           }else if (currentMenu == SPEED_MENU_CHANGE && param[3] <10)
+           }else if (currentMenu == SPEED_MENU_CHANGE && param[3] >1)
            {
             param[3] += add_value[3];
             showMenu(currentMenu); 
@@ -1019,8 +1032,9 @@ if (option != DO_NOTHING)
 
 void handleManualTest()
 {   
-  int buttonState;
-  i = 0;
+    int buttonState;
+    int sleep = OFF;
+    i = 0;
     sendPumpSpeedToslave();
     showMenu(MANUAL_TEST_MENU);
     calculatedPressure = readPressure();
@@ -1032,8 +1046,13 @@ void handleManualTest()
         switch(buttonState)                                           //check which button have been clicked
         {
        case LEFT:
-        digitalWrite(directionSignalPin, backward);                           // if left arrow has been clicked, set direction signal pin to backward
-        digitalWrite(pumpControlPin, runPump);                              // run pump backward
+        if(sleep == ON)
+        {
+          digitalWrite(sleepPin, sleepOff);
+          digitalWrite(directionSignalPin, backward);                           // if left arrow has been clicked, set direction signal pin to backward
+          digitalWrite(pumpControlPin, runPump);                             // run pump backward
+          sleep = OFF;
+        }
         calculatedPressure = readPressure();
         displayPressureMeasurement(calculatedPressure);
         while(digitalRead(leftArrowKeyPin) == buttonPressed )                 // checking if button is still pressed 
@@ -1041,6 +1060,7 @@ void handleManualTest()
           calculatedPressure = readPressure();
           if(i >= DISPLAY_DELAY_DURING_PUMPING_TEST)
           { 
+            calculatedPressure = readPressure();
             displayPressureMeasurement(calculatedPressure);
             i = 0;
           }else
@@ -1053,14 +1073,20 @@ void handleManualTest()
         buttonState = readButtonState();             
         break;
        case RIGHT:
-                digitalWrite(directionSignalPin, forward);                            // if right arrow has been clicked, set direction signal pin to backward
-                digitalWrite(pumpControlPin, runPump);                              // run pump backward
+                if(sleep == ON)
+                {
+                  digitalWrite(sleepPin, sleepOff);
+                  digitalWrite(directionSignalPin, forward);                            // if right arrow has been clicked, set direction signal pin to backward
+                  digitalWrite(pumpControlPin, runPump);                              // run pump forward
+                  sleep = OFF;
+                }
                 calculatedPressure = readPressure();
                 while(digitalRead(rightArrowKeyPin) == buttonPressed )                // checking if button is still pressed 
-                { 
+                {
                   calculatedPressure = readPressure();
                   if(i >= DISPLAY_DELAY_DURING_PUMPING_TEST)
                   { 
+                    calculatedPressure = readPressure();
                     displayPressureMeasurement(calculatedPressure);
                     i = 0;
                   }else
@@ -1100,10 +1126,16 @@ void handleManualTest()
         }   
           break;
         default:
-          calculatedPressure = readPressure();
-          if(i >= 1000)
+          //calculatedPressure = readPressure();
+          if(sleep == OFF)
           {
-          displayPressureMeasurement(calculatedPressure);  
+            digitalWrite(sleepPin, sleepOn);
+            sleep = ON;
+          }
+          if(i >= 20000)
+          {
+            calculatedPressure = readPressure();
+            displayPressureMeasurement(calculatedPressure);  
           i = 0;
           }
           i++;
@@ -1202,7 +1234,7 @@ bool selfTest()
   showMenu(SELF_TEST);
   digitalWrite(valve2Pin, valveOn);
   DoTheUnderpressureTest();
-  delay(1000);  
+  delay(2000);  
   DoTheOverpressureTest();
   if (abs( maxPressureDeviation[UNDERPRESSURE_TEST] ) > pressureDeviationLimitForSelfTest  || abs( maxPressureDeviation[OVERPRESSURE_TEST] ) > pressureDeviationLimitForSelfTest )
   {
